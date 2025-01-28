@@ -1956,11 +1956,11 @@ class OIDCDebugger:
         self.options_frame = ttk.LabelFrame(self.frame, text="Options", padding="5")
         self.options_frame.grid(row=2, column=0, padx=5, pady=5, sticky="ew")
 
-        self.oauth_checkbox_var = tk.BooleanVar()
+        self.oauth_checkbox_var = tk.BooleanVar(value=False)
         self.oauth_checkbox = ttk.Checkbutton(self.options_frame, text="OAUTH Only", variable=self.oauth_checkbox_var, command=self.toggle_options)
         self.oauth_checkbox.grid(row=0, column=0, padx=2, pady=2, sticky="w")
 
-        self.use_pkce = tk.BooleanVar()
+        self.use_pkce = tk.BooleanVar(value=True)
         self.use_pkce_checkbutton = ttk.Checkbutton(self.options_frame, text="Use PKCE", variable=self.use_pkce)
         self.use_pkce_checkbutton.grid(row=1, column=0, padx=2, pady=2, sticky="w")
 
@@ -1973,15 +1973,15 @@ class OIDCDebugger:
         self.client_secret_basic_radiobutton = ttk.Radiobutton(self.options_frame, text="Client Secret Basic", variable=self.auth_method, value="client_secret_basic")
         self.client_secret_basic_radiobutton.grid(row=1, column=2, padx=2, pady=2, sticky="w")
 
-        self.start_https_server = tk.BooleanVar()
+        self.start_https_server = tk.BooleanVar(value=True)
         self.start_https_server_checkbox = ttk.Checkbutton(self.options_frame, text="Web Server", variable=self.start_https_server)
         self.start_https_server_checkbox.grid(row=2, column=2, padx=2, pady=2, sticky="w")
 
-        self.exchange_code_for_tokens = tk.BooleanVar()
+        self.exchange_code_for_tokens = tk.BooleanVar(Value=True)
         self.exchange_code_for_tokens_checkbox = ttk.Checkbutton(self.options_frame, text="Exchange Code\nfor Tokens", variable=self.exchange_code_for_tokens)
         self.exchange_code_for_tokens_checkbox.grid(row=3, column=2, padx=2, pady=2, sticky="w")
 
-        self.userinfo_query = tk.BooleanVar()
+        self.userinfo_query = tk.BooleanVar(Value=True)
         self.user_info_query_checkbox = ttk.Checkbutton(self.options_frame, text="User Info Query", variable=self.userinfo_query)
         self.user_info_query_checkbox.grid(row=2, column=0, padx=2, pady=2, sticky="w")
 
