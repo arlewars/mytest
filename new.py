@@ -1907,6 +1907,12 @@ class OIDCDebugger:
         self.well_known_entry.grid(row=1, column=0, padx=2, pady=2, sticky="ew")
         self.well_known_dropdown = create_well_known_dropdown(self.endpoint_frame, self.well_known_entry)
 
+
+        # Adding more space between endpoint_frame and details_frame
+        self.spacer_frame = ttk.Frame(self.frame, padding="10")
+        self.spacer_frame.grid(row=2, column=0, padx=5, pady=5, sticky="ew")
+
+
         self.details_frame = ttk.Frame(self.frame, padding="5")
         self.details_frame.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
 
