@@ -1977,11 +1977,11 @@ class OIDCDebugger:
         self.start_https_server_checkbox = ttk.Checkbutton(self.options_frame, text="Web Server", variable=self.start_https_server)
         self.start_https_server_checkbox.grid(row=2, column=2, padx=2, pady=2, sticky="w")
 
-        self.exchange_code_for_tokens = tk.BooleanVar(Value=True)
+        self.exchange_code_for_tokens = tk.BooleanVar(value=True)
         self.exchange_code_for_tokens_checkbox = ttk.Checkbutton(self.options_frame, text="Exchange Code\nfor Tokens", variable=self.exchange_code_for_tokens)
         self.exchange_code_for_tokens_checkbox.grid(row=3, column=2, padx=2, pady=2, sticky="w")
 
-        self.userinfo_query = tk.BooleanVar(Value=True)
+        self.userinfo_query = tk.BooleanVar(value=True)
         self.user_info_query_checkbox = ttk.Checkbutton(self.options_frame, text="User Info Query", variable=self.userinfo_query)
         self.user_info_query_checkbox.grid(row=2, column=0, padx=2, pady=2, sticky="w")
 
@@ -2052,41 +2052,30 @@ class OIDCDebugger:
         ttk.Checkbutton(self.frame, text="Log OIDC process\nin separate window", variable=self.log_oidc_process).grid(row=7, column=1, padx=2, pady=2, sticky="w")
         
 
-         # Adding color dropdown and favorite color entry
-       # self.color_frame = ttk.Frame(self.frame, padding="5")
-       # self.color_frame.grid(row=2, column=0, padx=5, pady=5, sticky="ew")
-
-  #      self.color_label = ttk.Label(self.color_frame, text="Select your favorite color:")
-   #     self.color_label.grid(row=0, column=0, padx=2, pady=2, sticky="w")
-
-    #    self.color_var = tk.StringVar()
-    #    self.color_dropdown = ttk.Combobox(self.color_frame, textvariable=self.color_var, values=["Red", "Green", "Blue", "Yellow", "Purple"])
-    #    self.color_dropdown.grid(row=1, column=0, padx=2, pady=2, sticky="ew")
-    #    self.color_dropdown.bind("<<ComboboxSelected>>", self.update_favorite_color)
-
-     #   self.favorite_color_label = ttk.Label(self.color_frame, text="Favorite Color:")
-     #   self.favorite_color_label.grid(row=2, column=0, padx=2, pady=2, sticky="w")
-
-#        self.favorite_color_entry = ttk.Entry(self.color_frame, width=72)
-#        self.favorite_color_entry.grid(row=3, column=0, padx=2, pady=2, sticky="ew")
-
-
         # Ensure the toggle function is called initially to set the correct state
         self.window.update_idletasks() 
-        
- #   def update_favorite_color(self, event):
-  #      self.favorite_color_entry.delete(0, tk.END)
-   #     self.favorite_color_entry.insert(0, self.color_var.get())
 
     def toggle_options(self):
-            state = "disabled" if self.oauth_checkbox_var.get() else "normal"
-            self.use_pkce_checkbutton.configure(state=state)
-            self.client_secret_post_radiobutton.configure(state=state)
-            self.client_secret_basic_radiobutton.configure(state=state)
-            self.start_https_server_checkbox.configure(state=state)
-            self.exchange_code_for_tokens_checkbox.configure(state=state)
-            self.user_info_query_checkbox.configure(state=state)
-            self.submit_btn.configure(state=state)
+        if self.oauth_checkbox_var.get():
+            self.use_pkce.set(value=False)
+            self.start_https_server.set(value=False)
+            self.exchange_code_for_tokens.set(value=False)
+            self.userinfo_query.set(value=False)
+            state = "disabled"
+        else:
+            self.use_pkce.set(value=True)
+            self.start_https_server.set(value=True)
+            self.exchange_code_for_tokens.set(value=True)
+            self.userinfo_query.set(value=True)
+            state = "normal"
+        
+        self.use_pkce_checkbutton.configure(state=state)
+        self.client_secret_post_radiobutton.configure(state=state)
+        self.client_secret_basic_radiobutton.configure(state=state)
+        self.start_https_server_checkbox.configure(state=state)
+        self.exchange_code_for_tokens_checkbox.configure(state=state)
+        self.user_info_query_checkbox.configure(state=state)
+        self.submit_btn.configure(state=state)
 
     def open_oidc_log_window(self):
         if self.oidc_log_window is None or not self.oidc_log_window.winfo_exists():
@@ -2118,17 +2107,6 @@ class OIDCDebugger:
             frame.grid_rowconfigure(0, weight=1)
             frame.grid_columnconfigure(0, weight=1)            
 
-
-#    def update_endpoint_entry(self, event):
- #       selected_value = self.well_known_var.get()
-  #      if selected_value:
-  #          self.endpoint_entry.delete(0, tk.END)
-  ###          self.endpoint_entry.insert(0, selected_value)
-     #   else:
-     #       self.endpoint_entry.delete(0, tk.END)
-      #      self.endpoint_entry.insert(0, "Enter well-known endpoint URL")
-
-
     def copy_item_to_clipboard(self, event):
         selected_item = self.response_table.selection()
         if selected_item:
@@ -2141,7 +2119,11 @@ class OIDCDebugger:
             messagebox.showinfo("Copied", f"Copied to clipboard:\n{value}")
 
     def fetch_well_known(self):
+        if self.log_oidc_process.get():
+            self.open_oidc_log_window()
+
         well_known_url = self.well_known_entry.get().strip()
+
         if not well_known_url:
             self.response_text.insert(tk.END, "Please enter a well-known endpoint URL.\n")
             return
@@ -2151,6 +2133,9 @@ class OIDCDebugger:
             response.raise_for_status()
             well_known_data = response.json()
             self.display_well_known_response(well_known_data)
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Well-known configuration response:\n{json.dumps(well_known_data, indent=4)}\n")
+
         except requests.exceptions.ConnectionError as e:
             messagebox.showerror("Connection Error", f"Failed to connect to {well_known_url}. Please check the URL and your network connection.")
             log_error("Connection Error", e)
@@ -2160,14 +2145,21 @@ class OIDCDebugger:
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Request Error", f"An error occurred while fetching the well-known configuration: {e}")
             log_error("Request Error", e)
+        except requests.exceptions.InvalidURL as e:
+            messagebox.showerror("Request Error", f"An error occurred while fetching the well-known configuration: {e}")
+            log_error("Request Error", e)            
         except Exception as ssl_error:
             response = requests.get(well_known_url, verify=False)
             well_known_data = response.json()
             self.display_well_known_response(well_known_data)
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Well-known configuration response:\n{json.dumps(well_known_data, indent=4)}\n")
 
         if response.status_code != 200:
                 self.response_text.insert(tk.END, f"Error fetching well-known configuration: {response.status_code}\n")
                 log_error("Unable to query Well-known Endpoint",f"{response.status_code}")
+
+
         return well_known_data
 
     def get_oauth_tokens(self):
@@ -2183,44 +2175,65 @@ class OIDCDebugger:
         token_endpoint = config.get("token_endpoint")
         introspection_endpoint = config.get("introspection_endpoint")
 
-        client_id = client_id_entry.get().strip()
-        client_secret = client_secret_entry.get().strip()
-        scopes = scopes_entry.get().strip()
+        client_id = self.client_id_entry.get().strip()
+        client_secret = self.client_secret_entry.get().strip()
+        scopes = self.scope_entry.get().strip()
+        aud = self.aud_entry.get().strip()
+
+        print(f"Auth Endpoint: {auth_endpoint}")
+        print(f"Token Endpoint: {token_endpoint}")
+        print(f"Introspection Endpoint: {introspection_endpoint}")
+        print(f"Client ID: {client_id}")
+        print(f"Client Secret: {client_secret}")
+        print(f"Scopes: {scopes}")
+        print(f"Audience: {aud}")
+
 
         if not all([token_endpoint, client_id, client_secret, scopes]):
-            result_text.delete(1.0, tk.END)
-            result_text.insert(tk.END, "Please fill in all fields to get tokens.")
+            self.response_text.delete(1.0, tk.END)
+            self.response_text.insert(tk.END, "Please fill in all fields to get tokens.")
             return
 
-        result_text.delete(1.0, tk.END)
+    
+        data = {
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'grant_type': 'client_credentials',
+            'scope': scopes,
+            'aud': aud
+        }
         try:
-            data = {
-                'client_id': client_id,
-                'client_secret': client_secret,
-                'grant_type': 'client_credentials',
-                'scope': scopes,
-                'aud': aud_entry.get().strip()
-            }
+            ssl_context = create_combined_ssl_context(CA_path, cert_path) if cert_path else None
+            response = requests.post(token_endpoint, data=data, verify=ssl_context)
+        except Exception as ssl_error:
+            response = requests.post(token_endpoint, data=data, verify=False)
+
+        #response = requests.post(token_endpoint, data=data, verify=False)
+
+        response.raise_for_status()
+        token_data = response.json()
+        access_token = token_data.get('access_token')
+        self.response_text.insert(tk.END, f"Access Token:\n{access_token}\n\n")
+        self.response_text.insert(tk.END, f"Token Type:\n{token_data.get('token_type')}\n\n")
+        self.response_text.insert(tk.END, f"Expires In:\n{token_data.get('expires_in')}\n\n")
+
+        if access_token:
             try:
-                ssl_context = create_combined_ssl_context(CA_path, cert_path) if cert_path else None
-                response = requests.post(token_endpoint, data=data, verify=ssl_context)
-            except Exception as ssl_error:
-                response = requests.post(token_endpoint, data=data, verify=False)
-
-            #response = requests.post(token_endpoint, data=data, verify=False)
-            response.raise_for_status()
-            token_data = response.json()
-            access_token = token_data.get('access_token')
-            result_text.insert(tk.END, f"Access Token:\n{access_token}\n\n")
-            result_text.insert(tk.END, f"Token Type:\n{token_data.get('token_type')}\n\n")
-            result_text.insert(tk.END, f"Expires In:\n{token_data.get('expires_in')}\n\n")
-
-            if access_token:
                 decoded_token = decode_jwt(access_token)
-                result_text.insert(tk.END, f"Decoded Access Token:\n{decoded_token}\n\n")
-        except Exception as e:
-            result_text.insert(tk.END, f"Error retrieving OAuth tokens: {e}")
-            log_error("Error retrieving OAuth token",e)
+                self.response_text.insert(tk.END, f"Decoded Access Token:\n{decoded_token}\n\n")
+            except Exception as e:
+                self.response_text.insert(tk.END, f"Error retrieving OAuth tokens: {e}")
+                log_error("Error retrieving OAuth token",e)
+
+        if self.log_oidc_process.get():
+            self.oidc_log_text.insert(tk.END, f"Well-known configuration response:\n{json.dumps(config, indent=4)}\n")
+            self.oidc_log_text.insert(tk.END, f"Access Token:\n{access_token}\n\n")
+            self.oidc_log_text.insert(tk.END, f"Token Type:\n{token_data.get('token_type')}\n\n")
+            self.oidc_log_text.insert(tk.END, f"Expires In:\n{token_data.get('expires_in')}\n\n")
+            self.oidc_log_text.insert(tk.END, f"Decoded Access Token:\n{decoded_token}\n\n")
+
+
+
 
     def generate_auth_request(self):
         if self.log_oidc_process.get():
@@ -2247,18 +2260,7 @@ class OIDCDebugger:
             return
 
         try:
-#            self.fetch_well_known(self)
 
-#            try:
- #               response = requests.get(well_known_url, verify=ssl_context)
-  #          except Exception as ssl_error:
-   #             response = requests.get(well_known_url, verify=False)
-
-    #        #response = requests.get(well_known_url, verify=False)
-     #       if response.status_code != 200:
-      #          self.response_text.insert(tk.END, f"Error fetching well-known configuration: {response.status_code}\n")
-       #         log_error("Unable to query Well-known Endpoint",f"{response.status_code}")
-        #        return
 
             config = self.fetch_well_known()
 
@@ -2415,6 +2417,10 @@ class OIDCDebugger:
     def start_https_server(self):
         global https_server, https_server_thread
 
+        if not self.start_https_server.get():
+            self.response_text.insert(tk.END, "HTTPS server start is disabled.\n")
+            return
+
         server_name = self.server_name_entry.get().strip()
         if not server_name:
             server_name = "localhost"
@@ -2496,6 +2502,10 @@ class OIDCDebugger:
 
 
     def exchange_code_for_tokens(self, code):
+        if not self.exchange_code_for_tokens.get():
+            self.response_text.insert(tk.END, "Skipping Code Exchange, it is disabled.\n")
+            return
+    
         server_name = self.server_name_entry.get().strip()
         if not server_name:
             server_name = "localhost"
@@ -2633,6 +2643,11 @@ class OIDCDebugger:
 
 
     def userinfo_query(self, token, token_type):
+        if not self.userinfo_query.get():
+                self.response_text.insert(tk.END, "Skipping Userinfo Query, it is disabled.\n")
+                return
+        
+
         try:
             headers = {
                 'Authorization': f'Bearer {token}'
