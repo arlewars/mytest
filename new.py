@@ -2047,30 +2047,30 @@ class OIDCDebugger:
         
 
          # Adding color dropdown and favorite color entry
-        self.color_frame = ttk.Frame(self.frame, padding="5")
-        self.color_frame.grid(row=2, column=0, padx=5, pady=5, sticky="ew")
+       # self.color_frame = ttk.Frame(self.frame, padding="5")
+       # self.color_frame.grid(row=2, column=0, padx=5, pady=5, sticky="ew")
 
-        self.color_label = ttk.Label(self.color_frame, text="Select your favorite color:")
-        self.color_label.grid(row=0, column=0, padx=2, pady=2, sticky="w")
+  #      self.color_label = ttk.Label(self.color_frame, text="Select your favorite color:")
+   #     self.color_label.grid(row=0, column=0, padx=2, pady=2, sticky="w")
 
-        self.color_var = tk.StringVar()
-        self.color_dropdown = ttk.Combobox(self.color_frame, textvariable=self.color_var, values=["Red", "Green", "Blue", "Yellow", "Purple"])
-        self.color_dropdown.grid(row=1, column=0, padx=2, pady=2, sticky="ew")
-        self.color_dropdown.bind("<<ComboboxSelected>>", self.update_favorite_color)
+    #    self.color_var = tk.StringVar()
+    #    self.color_dropdown = ttk.Combobox(self.color_frame, textvariable=self.color_var, values=["Red", "Green", "Blue", "Yellow", "Purple"])
+    #    self.color_dropdown.grid(row=1, column=0, padx=2, pady=2, sticky="ew")
+    #    self.color_dropdown.bind("<<ComboboxSelected>>", self.update_favorite_color)
 
-        self.favorite_color_label = ttk.Label(self.color_frame, text="Favorite Color:")
-        self.favorite_color_label.grid(row=2, column=0, padx=2, pady=2, sticky="w")
+     #   self.favorite_color_label = ttk.Label(self.color_frame, text="Favorite Color:")
+     #   self.favorite_color_label.grid(row=2, column=0, padx=2, pady=2, sticky="w")
 
-        self.favorite_color_entry = ttk.Entry(self.color_frame, width=72)
-        self.favorite_color_entry.grid(row=3, column=0, padx=2, pady=2, sticky="ew")
+#        self.favorite_color_entry = ttk.Entry(self.color_frame, width=72)
+#        self.favorite_color_entry.grid(row=3, column=0, padx=2, pady=2, sticky="ew")
 
 
         # Ensure the toggle function is called initially to set the correct state
         self.window.update_idletasks() 
         
-    def update_favorite_color(self, event):
-        self.favorite_color_entry.delete(0, tk.END)
-        self.favorite_color_entry.insert(0, self.color_var.get())
+ #   def update_favorite_color(self, event):
+  #      self.favorite_color_entry.delete(0, tk.END)
+   #     self.favorite_color_entry.insert(0, self.color_var.get())
 
     def toggle_options(self):
             state = "disabled" if self.oauth_checkbox_var.get() else "normal"
