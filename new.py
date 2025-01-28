@@ -44,6 +44,7 @@ import socketserver
 import http.server
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import pygame
+import urllib3
 from urllib3 import disable_warnings
 from urllib3.exceptions import InsecureRequestWarning
 disable_warnings(InsecureRequestWarning)
@@ -1406,12 +1407,40 @@ def show_certificate_details():
 
 
 class ActiveDirectoryDebugger:
+
+ # Define the templates for the different AD servers
+    dn_templates = {
+        "LUV": [
+            "cn={username},ou=users,ou=field,ou=swaco,dc=luv,dc=ad,dc=swacorp,dc=com",
+            "cn={username},ou=security operations,ou=security,ou=admin,dc=luv,dc=ad,dc=swacorp,dc=com"
+        ],
+        "QAAD": [
+            "cn={username},ou=users,ou=field,ou=swaco,dc=qaad,dc=qaad,dc=swacorp,dc=com",
+            "cn={username},ou=security operations,ou=security,ou=admin,dc=qaad,dc=qaad,dc=swacorp,dc=com"
+        ],
+        "DEVAD": [
+            "cn={username},ou=users,ou=field,ou=swaco,dc=devad,dc=devad,dc=swacorp,dc=com",
+            "cn={username},ou=security operations,ou=security,ou=admin,dc=devad,dc=devad,dc=swacorp,dc=com"
+        ]
+    }
+
     def __init__(self, master):
         self.master = master
         self.window = tk.Toplevel()
         self.window.title("Active Directory Debugger")
         self.window.geometry("1000x800")
         self.setup_ui()
+
+    def toggle_debug_window(self):
+        if self.debug_var.get():
+            self.debug_window = tk.Toplevel(self)
+            self.debug_window.title("LDAP Debug")
+            self.debug_text = tk.Text(self.debug_window, wrap=tk.WORD, height=20, width=80)
+            self.debug_text.pack(fill=tk.BOTH, expand=True)
+        else:
+            if hasattr(self, 'debug_window'):
+                self.debug_window.destroy()
+                del self.debug_text  # Ensure debug_text is deleted when window is closed
 
     def setup_ui(self):
         self.frame = ttk.Frame(self.window, padding="10")
@@ -1549,7 +1578,6 @@ class ActiveDirectoryDebugger:
         self.missing_text.configure(yscrollcommand=missing_scrollbar.set)
         missing_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-
         self.options_frame = ttk.Frame(self.frame)
         self.options_frame.grid(row=0, column=2, rowspan=17, padx=5, pady=5, sticky="ns")
 
@@ -1561,6 +1589,12 @@ class ActiveDirectoryDebugger:
 
         self.export_missing_btn = ttk.Button(self.options_frame, text="Export Missing Groups", command=self.export_missing_groups)
         self.export_missing_btn.grid(row=2, column=0, padx=5, pady=5)
+
+
+        # Add a checkbox for enabling debug mode
+        self.debug_var = tk.BooleanVar()
+        self.debug_check = tk.Checkbutton(self.options_frame, text="Enable Debug", variable=self.debug_var)
+        self.debug_check.grid(row=3, column=0, padx=5, pady=5)
 
         self.toggle_function()
 
@@ -1588,6 +1622,9 @@ class ActiveDirectoryDebugger:
             self.compare_group1_entry.configure(state="normal")
             self.compare_group2_entry.configure(state="normal")
             self.search_btn.configure(state="disabled")
+            self.add_user_btn.configure(state="disabled")
+            self.user_search_entry.configure(state="disabled")
+            self.user2_search_entry.configure(state="disabled")
             self.compare_btn.configure(state="normal")
             self.result_frame.grid_remove()
             self.group1_frame.grid(row=14, column=0, padx=5, pady=5, sticky="ew")
@@ -1604,21 +1641,56 @@ class ActiveDirectoryDebugger:
         password = self.password_entry.get()
         search_base = self.search_base_entry.get()
         user_to_search = self.user_search_entry.get()
-
+        debug = self.debug_var.get()
 
         try:
-            server = ldap3.Server(server)
-            conn = ldap3.Connection(server, user=username, password=password, auto_bind=True, client_strategy=ldap3.RESTARTABLE, auto_referrals=True)
+            server_obj = ldap3.Server(server)
+            try: # Attempt to bind with the provided username and password
+                conn = ldap3.Connection(server_obj, user=username, password=password, auto_bind=True, client_strategy=ldap3.RESTARTABLE, auto_referrals=False)
+                if debug and hasattr(self, 'debug_text'):
+                    debug_message = f"LDAP Bind: Server={server}, User={username}\n"
+                    self.debug_text.insert(tk.END, debug_message)
+            except:
+                if self.server_var.get() in self.dn_templates:
+                    for template in self.dn_templates[self.server_var.get()]:
+                        try:
+                            user_dn = template.format(username=username)
+                            conn = ldap3.Connection(server_obj, user=user_dn, password=password, auto_bind=True, client_strategy=ldap3.RESTARTABLE, auto_referrals=False)
+                            if debug and hasattr(self, 'debug_text'):
+                                debug_message = f"LDAP Bind: Server={server}, User={user_dn}\n"
+                                self.debug_text.insert(tk.END, debug_message)
+                            break
+                        except ldap3.core.exceptions.LDAPBindError as e:
+                            log_error("LDAP Bind Error with template",e)
+                            continue
+                    else:
+                        raise ldap3.core.exceptions.LDAPBindError("Automatic bind not successful - invalid credentials")
+                    if debug and hasattr(self, 'debug_text'):
+                        debug_message = f"LDAP Bind: Server={server}, User={username}\n"
+                        self.debug_text.insert(tk.END, debug_message)
         except ldap3.core.exceptions.LDAPBindError as e:
-            messagebox.showerror("LDAP Bind Error", "Automatic bind not successful - invalid credentials")
+            messagebox.showerror("LDAP Bind Error", "Bind not successful - invalid credentials")
+            log_error("LDAP Bind Error",e)
+            if debug and hasattr(self, 'debug_text'):
+                debug_message = f"LDAP Bind Error: {e}\n"
+                self.debug_text.insert(tk.END, debug_message)
             return
 
         search_filter = f'(|(sAMAccountName={user_to_search})(cn={user_to_search})(uid={user_to_search}))'
+        if debug and hasattr(self, 'debug_text'):
+            debug_message = f"LDAP Search: Base={search_base}, Filter={search_filter}\n"
+            self.debug_text.insert(tk.END, debug_message)
+
         conn.search(search_base, search_filter, attributes=ldap3.ALL_ATTRIBUTES)
+
+        if debug and hasattr(self, 'debug_text'):
+            debug_message = f"LDAP Response: {conn.entries}\n"
+            self.debug_text.insert(tk.END, debug_message)
 
         if not conn.entries:
             self.result_text.delete(1.0, tk.END)
             self.result_text.insert(tk.END, f"User {user_to_search} not found.\n")
+            log_error("User not found.",user_to_search)
             return
 
         user_entry = conn.entries[0]
@@ -1634,11 +1706,20 @@ class ActiveDirectoryDebugger:
         if self.user2_search_entry.winfo_ismapped():
             user2_to_search = self.user2_search_entry.get()
             search_filter = f'(|(sAMAccountName={user2_to_search})(cn={user2_to_search})(uid={user2_to_search}))'
+            if debug and hasattr(self, 'debug_text'):
+                debug_message = f"LDAP Search: Base={search_base}, Filter={search_filter}\n"
+                self.debug_text.insert(tk.END, debug_message)
+
             conn.search(search_base, search_filter, attributes=ldap3.ALL_ATTRIBUTES)
+
+            if debug and hasattr(self, 'debug_text'):
+                debug_message = f"LDAP Response: {conn.entries}\n"
+                self.debug_text.insert(tk.END, debug_message)
 
             if not conn.entries:
                 self.user2_text.delete(1.0, tk.END)
                 self.user2_text.insert(tk.END, f"User {user2_to_search} not found.\n")
+                log_error(f"User not found.",user2_to_search)
                 return
 
             user2_entry = conn.entries[0]
@@ -1674,23 +1755,24 @@ class ActiveDirectoryDebugger:
             else:
                 self.user1_text.insert(tk.END, "Groups:\n")
                 for group in user1_groups:
-                    self.user1_text.insert(tk.END, f"{group.decode('utf-8')}\n")
+                    self.user1_text.insert(tk.END, f"{group}\n")
 
             if not user2_groups:
                 self.user2_text.insert(tk.END, "No groups found.\n")
             else:
                 self.user2_text.insert(tk.END, "Groups:\n")
                 for group in user2_groups:
-                    self.user2_text.insert(tk.END, f"{group.decode('utf-8')}\n")
+                    self.user2_text.insert(tk.END, f"{group}\n")
 
-            only_in_user1 = user1_groups - user2_groups
 
-            self.missing_text.delete(1.0, tk.END)
-            self.missing_text_label = tk.Label(self.missing_frame, text=f"Groups that User {user_to_search} has but User {user2_to_search} is missing:")
-            self.missing_text_label.pack()
-            self.missing_text.insert(tk.END, f"Groups that User {user_to_search} has but User {user2_to_search} is missing:\n")
-            for group in only_in_user1:
-                self.missing_text.insert(tk.END, f"{group}\n")
+                only_in_user1 = user1_groups - user2_groups
+
+                self.missing_text.delete(1.0, tk.END)
+                self.missing_text_label = tk.Label(self.missing_frame, text=f"Groups that User {user_to_search} has but User {user2_to_search} is missing:")
+                self.missing_text_label.pack()
+                self.missing_text.insert(tk.END, f"Groups that User {user_to_search} has but User {user2_to_search} is missing:\n")
+                for group in only_in_user1:
+                    self.missing_text.insert(tk.END, f"{group}\n")
 
     def compare_groups(self):
         server = self.server_entry.get()
@@ -1702,41 +1784,58 @@ class ActiveDirectoryDebugger:
 
         server = ldap3.Server(server)
         conn = ldap3.Connection(server, user=username, password=password, auto_bind=True)
-        conn.search(search_base, f'(cn={group1})', attributes=['member'])
 
-        if not conn.entries:
-            self.group1_text.delete(1.0, tk.END)
-            self.group1_text.insert(tk.END, f"Group {group1} not found.\n")
-            return
+        if group1:
+            conn.search(search_base, f'(cn={group1})', attributes=['member'])
+            if not conn.entries:
+                self.group1_text.delete(1.0, tk.END)
+                self.group1_text.insert(tk.END, f"Group {group1} not found.\n")
+                return
+            group1_members = set(conn.entries[0].member)
+        else:
+            group1_members = set()
 
-        group1_members = set(conn.entries[0].member)
-
-        conn.search(search_base, f'(cn={group2})', attributes=['member'])
-
-        if not conn.entries:
-            self.group2_text.delete(1.0, tk.END)
-            self.group2_text.insert(tk.END, f"Group {group2} not found.\n")
-            return
-
-        group2_members = set(conn.entries[0].member)
-
-        only_in_group1 = group1_members - group2_members
-        only_in_group2 = group2_members - group1_members
+        if group2:
+            conn.search(search_base, f'(cn={group2})', attributes=['member'])
+            if not conn.entries:
+                self.group2_text.delete(1.0, tk.END)
+                self.group2_text.insert(tk.END, f"Group {group2} not found.\n")
+                return
+            group2_members = set(conn.entries[0].member)
+        else:
+            group2_members = set()
 
         self.group1_text.delete(1.0, tk.END)
-        self.group1_text.insert(tk.END, f"Members only in {group1}:\n")
-        for member in only_in_group1:
-            self.group1_text.insert(tk.END, f"{member}\n")
-
         self.group2_text.delete(1.0, tk.END)
-        self.group2_text.insert(tk.END, f"Members only in {group2}:\n")
-        for member in only_in_group2:
-            self.group2_text.insert(tk.END, f"{member}\n")
 
-        self.missing_text.delete(1.0, tk.END)
-        self.missing_text.insert(tk.END, f"Members missing between {group1} and {group2}:\n")
-        for member in only_in_group1.union(only_in_group2):
-            self.missing_text.insert(tk.END, f"{member}\n")
+        if group1 and not group2:
+            self.group1_text.insert(tk.END, f"Members of Group 1 ({group1}):\n")
+            for member in group1_members:
+                self.group1_text.insert(tk.END, f"{member}\n")
+        elif group1 and group2:
+            only_in_group1 = group1_members - group2_members
+            only_in_group2 = group2_members - group1_members
+
+            self.group1_text.insert(tk.END, f"Members only in {group1}:\n")
+            for member in only_in_group1:
+                self.group1_text.insert(tk.END, f"{member}\n")
+
+            self.group2_text.insert(tk.END, f"Members only in {group2}:\n")
+            for member in only_in_group2:
+                self.group2_text.insert(tk.END, f"{member}\n")
+        else:
+            self.group1_text.insert(tk.END, f"Members of Group 1 ({group1}):\n")
+            for member in group1_members:
+                self.group1_text.insert(tk.END, f"{member}\n")
+
+            self.group2_text.insert(tk.END, f"Members of Group 2 ({group2}):\n")
+            for member in group2_members:
+                self.group2_text.insert(tk.END, f"{member}\n")
+
+            self.missing_text.delete(1.0, tk.END)
+            self.missing_text.insert(tk.END, f"Members missing between {group1} and {group2}:\n")
+            for member in only_in_group1.union(only_in_group2):
+                self.missing_text.insert(tk.END, f"{member}\n")
 
     def export_user1_groups(self):
         user1_sAMAccountName = self.user_search_entry.get()
@@ -1792,81 +1891,95 @@ class OIDCDebugger:
         theme_colors = NORD_STYLES.get(self.theme, NORD_STYLES["standard"])
         self.window.configure(background=theme_colors["background"])
         
-    def setup_ui(self):
+    def setup_ui(self): 
         self.frame = ttk.Frame(self.window, padding="10")
         self.frame.pack(fill=tk.BOTH, expand=True)
 
-        self.endpoint_frame = ttk.Frame(self.frame, padding="5")
-        self.endpoint_frame.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+        self.endpoint_frame = ttk.Frame(self.frame, padding="2")
+        self.endpoint_frame.grid(row=0, column=0, padx=2, pady=2, sticky="ew")
 
         self.endpoint_label = ttk.Label(self.endpoint_frame, text="Select or enter well-known endpoint URL:")
-        self.endpoint_label.grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        self.endpoint_label.grid(row=0, column=0, padx=2, pady=2, sticky="w")
 
-        self.well_known_entry = ttk.Entry(self.endpoint_frame)
-        self.well_known_entry.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
+        self.well_known_entry = ttk.Entry(self.endpoint_frame, width=72)
+        self.well_known_entry.grid(row=1, column=0, padx=2, pady=2, sticky="ew")
         self.well_known_dropdown = create_well_known_dropdown(self.endpoint_frame, self.well_known_entry)
+
+ 
 
         self.details_frame = ttk.Frame(self.frame, padding="5")
         self.details_frame.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
 
         self.server_name_label = ttk.Label(self.details_frame, text="Server Name (optional):")
-        self.server_name_label.grid(row=0, column=0, padx=2, pady=2, sticky="w")
+        self.server_name_label.grid(row=1, column=0, padx=2, pady=2, sticky="w")
 
         self.server_name_entry = ttk.Entry(self.details_frame, width=20)
-        self.server_name_entry.grid(row=0, column=1, padx=2, pady=2, sticky="ew")
+        self.server_name_entry.grid(row=1, column=1, padx=2, pady=2, sticky="ew")
         self.server_name_entry.insert(0, "localhost")
 
         self.client_id_label = ttk.Label(self.details_frame, text="Client ID:")
-        self.client_id_label.grid(row=1, column=0, padx=2, pady=2, sticky="w")
+        self.client_id_label.grid(row=2, column=0, padx=2, pady=2, sticky="w")
 
         self.client_id_entry = ttk.Entry(self.details_frame, width=20)
-        self.client_id_entry.grid(row=1, column=1, padx=2, pady=2, sticky="ew")
+        self.client_id_entry.grid(row=2, column=1, padx=2, pady=2, sticky="ew")
         self.client_id_entry.insert(0, "ClientID")
 
         self.client_secret_label = ttk.Label(self.details_frame, text="Client Secret:")
-        self.client_secret_label.grid(row=2, column=0, padx=2, pady=2, sticky="w")
+        self.client_secret_label.grid(row=3, column=0, padx=2, pady=2, sticky="w")
 
         self.client_secret_entry = ttk.Entry(self.details_frame, width=20, show="*")
-        self.client_secret_entry.grid(row=2, column=1, padx=2, pady=2, sticky="ew")
+        self.client_secret_entry.grid(row=3, column=1, padx=2, pady=2, sticky="ew")
         self.client_secret_entry.insert(0, "Secret")
 
         self.scope_entry_label = ttk.Label(self.details_frame, text="Scopes (e.g., profile openid):")
-        self.scope_entry_label.grid(row=3, column=0, padx=2, pady=2, sticky="w")
+        self.scope_entry_label.grid(row=4, column=0, padx=2, pady=2, sticky="w")
 
         self.scope_entry = ttk.Entry(self.details_frame, width=20)
-        self.scope_entry.grid(row=3, column=1, padx=2, pady=2, sticky="ew")
+        self.scope_entry.grid(row=4, column=1, padx=2, pady=2, sticky="ew")
         self.scope_entry.insert(0, "profile")
 
         self.aud_label = ttk.Label(self.details_frame, text="Audience (optional):")
-        self.aud_label.grid(row=4, column=0, padx=2, pady=2, sticky="w")
+        self.aud_label.grid(row=5, column=0, padx=2, pady=2, sticky="w")
 
         self.aud_entry = ttk.Entry(self.details_frame, width=20)
-        self.aud_entry.grid(row=4, column=1, padx=2, pady=2, sticky="ew")
+        self.aud_entry.grid(row=5, column=1, padx=2, pady=2, sticky="ew")
         self.aud_entry.insert(0, "aud")
         ttk.Button(self.details_frame, text="Fetch Well-Known", command=self.fetch_well_known).grid(row=4, column=2, padx=5, pady=5)
 
-
+        # Start options frame
         self.options_frame = ttk.LabelFrame(self.frame, text="Options", padding="5")
         self.options_frame.grid(row=2, column=0, padx=5, pady=5, sticky="ew")
 
-
         self.oauth_checkbox_var = tk.BooleanVar()
-        self.oauth_checkbox = ttk.Checkbutton(self.options_frame, text="Select to do OAUTH", variable=self.oauth_checkbox_var, command=self.toggle_options)
-        self.oauth_checkbox.grid(row=0, column=0, padx=5, pady=2, sticky="w")
+        self.oauth_checkbox = ttk.Checkbutton(self.options_frame, text="OAUTH Only", variable=self.oauth_checkbox_var, command=self.toggle_options)
+        self.oauth_checkbox.grid(row=0, column=0, padx=2, pady=2, sticky="w")
 
         self.use_pkce = tk.BooleanVar()
         self.use_pkce_checkbutton = ttk.Checkbutton(self.options_frame, text="Use PKCE", variable=self.use_pkce)
-        self.use_pkce_checkbutton.grid(row=1, column=0, padx=5, pady=2, sticky="w")
+        self.use_pkce_checkbutton.grid(row=1, column=0, padx=2, pady=2, sticky="w")
 
         separator = ttk.Separator(self.options_frame, orient='vertical')
-        separator.grid(row=0, column=1, rowspan=2, padx=5, pady=2, sticky="ns")
+        separator.grid(row=0, column=1, rowspan=3, padx=2, pady=2, sticky="ns")
 
         self.auth_method = tk.StringVar(value="client_secret_post")
         self.client_secret_post_radiobutton = ttk.Radiobutton(self.options_frame, text="Client Secret Post", variable=self.auth_method, value="client_secret_post")
-        self.client_secret_post_radiobutton.grid(row=0, column=2, padx=5, pady=2, sticky="w")
+        self.client_secret_post_radiobutton.grid(row=0, column=2, padx=2, pady=2, sticky="w")
         self.client_secret_basic_radiobutton = ttk.Radiobutton(self.options_frame, text="Client Secret Basic", variable=self.auth_method, value="client_secret_basic")
-        self.client_secret_basic_radiobutton.grid(row=1, column=2, padx=5, pady=2, sticky="w")
+        self.client_secret_basic_radiobutton.grid(row=1, column=2, padx=2, pady=2, sticky="w")
 
+        self.start_https_server = tk.BooleanVar()
+        self.start_https_server_checkbox = ttk.Checkbutton(self.options_frame, text="Web Server", variable=self.start_https_server)
+        self.start_https_server_checkbox.grid(row=2, column=2, padx=2, pady=2, sticky="w")
+
+        self.exchange_code_for_tokens = tk.BooleanVar()
+        self.exchange_code_for_tokens_checkbox = ttk.Checkbutton(self.options_frame, text="Exchange Code\nfor Tokens", variable=self.exchange_code_for_tokens)
+        self.exchange_code_for_tokens_checkbox.grid(row=3, column=2, padx=2, pady=2, sticky="w")
+
+        self.userinfo_query = tk.BooleanVar()
+        self.user_info_query_checkbox = ttk.Checkbutton(self.options_frame, text="User Info Query", variable=self.userinfo_query)
+        self.user_info_query_checkbox.grid(row=2, column=0, padx=2, pady=2, sticky="w")
+
+        # End options frame
 
         self.generate_request_btn = ttk.Button(self.frame, text="Generate Auth Request", command=self.generate_auth_request)
         self.generate_request_btn.grid(row=3, column=0, padx=5, pady=2)
@@ -1878,17 +1991,21 @@ class OIDCDebugger:
         self.auth_url_text.configure(yscrollcommand=auth_url_scrollbar.set)
         auth_url_scrollbar.grid(row=4, column=1, sticky="ns")
 
-        self.submit_btn = ttk.Button(self.frame, text="Submit Auth Request", command=self.submit_auth_request)
-        self.submit_btn.grid(row=5, column=0, padx=5, pady=2)
 
-        ttk.Button(self.frame, text="Get Tokens", command=self.get_oauth_tokens).grid(row=5, column=1, padx=2, pady=2)
+        self.fetch_tokens_btn = ttk.Button(self.frame, text="Fetch Tokens", command=self.get_oauth_tokens)
+        self.fetch_tokens_btn.grid(row=10, column=0, padx=5, pady=2)
+        
+        self.submit_btn = ttk.Button(self.frame, text="Submit Auth Request", command=self.submit_auth_request)
+        self.submit_btn.grid(row=6, column=0, padx=5, pady=2)
+
+        ttk.Button(self.frame, text="Get Tokens", command=self.get_oauth_tokens).grid(row=6, column=1, padx=2, pady=2)
 
 
         self.clear_text_checkbox = tk.BooleanVar()
-        ttk.Checkbutton(self.frame, text="Clear response text\nbefore next request", variable=self.clear_text_checkbox).grid(row=6, column=0, padx=2, pady=2, sticky="w")
+        ttk.Checkbutton(self.frame, text="Clear response text\nbefore next request", variable=self.clear_text_checkbox).grid(row=7, column=0, padx=2, pady=2, sticky="w")
 
         self.log_oidc_process = tk.BooleanVar()
-        ttk.Checkbutton(self.frame, text="Log OIDC process\nin separate window", variable=self.log_oidc_process).grid(row=6, column=1, padx=2, pady=2, sticky="w")
+        ttk.Checkbutton(self.frame, text="Log OIDC process\nin separate window", variable=self.log_oidc_process).grid(row=7, column=1, padx=2, pady=2, sticky="w")
              
         self.response_table_frame = ttk.Frame(self.frame)
         self.response_table_frame.grid(row=0, column=2, rowspan=9, padx=5, pady=5, sticky="nsew")
@@ -1912,26 +2029,35 @@ class OIDCDebugger:
         table_scrollbar_x.grid(row=1, column=1, sticky="ew")
 
         self.response_text = tk.Text(self.frame, height=30, width=70)
-        self.response_text.grid(row=15, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
+        self.response_text.grid(row=16, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
         response_text_scrollbar = ttk.Scrollbar(self.frame, orient="vertical", command=self.response_text.yview)
         self.response_text.configure(yscrollcommand=response_text_scrollbar.set)
-        response_text_scrollbar.grid(row=15, column=2, sticky="ns")
+        response_text_scrollbar.grid(row=16, column=2, sticky="ns")
 
         self.certificate_btn = ttk.Button(self.frame, text="Show Certificate", command=self.show_certificate)
-        self.certificate_btn.grid(row=16, column=0, padx=5, pady=5)
+        self.certificate_btn.grid(row=17, column=0, padx=5, pady=5)
 
         self.replace_certificate_btn = ttk.Button(self.frame, text="Replace Certificate", command=self.replace_certificate)
-        self.replace_certificate_btn.grid(row=17, column=0, padx=5, pady=5)
+        self.replace_certificate_btn.grid(row=18, column=0, padx=5, pady=5)
 
         self.oidc_log_window = None
         #Draw the screen and start network operations after UI is fully rendered 
+        self.log_oidc_process = tk.BooleanVar()
+        ttk.Checkbutton(self.frame, text="Log OIDC process\nin separate window", variable=self.log_oidc_process).grid(row=7, column=1, padx=2, pady=2, sticky="w")
+        
+        # Ensure the toggle function is called initially to set the correct state
         self.window.update_idletasks() 
+
 
     def toggle_options(self):
             state = "disabled" if self.oauth_checkbox_var.get() else "normal"
             self.use_pkce_checkbutton.configure(state=state)
             self.client_secret_post_radiobutton.configure(state=state)
             self.client_secret_basic_radiobutton.configure(state=state)
+            self.start_https_server_checkbox.configure(state=state)
+            self.exchange_code_for_tokens_checkbox.configure(state=state)
+            self.user_info_query_checkbox.configure(state=state)
+            self.submit_btn.configure(state=state)
 
     def open_oidc_log_window(self):
         if self.oidc_log_window is None or not self.oidc_log_window.winfo_exists():
@@ -1964,14 +2090,14 @@ class OIDCDebugger:
             frame.grid_columnconfigure(0, weight=1)            
 
 
-    def update_endpoint_entry(self, event):
-        selected_value = self.well_known_var.get()
-        if selected_value:
-            self.endpoint_entry.delete(0, tk.END)
-            self.endpoint_entry.insert(0, selected_value)
-        else:
-            self.endpoint_entry.delete(0, tk.END)
-            self.endpoint_entry.insert(0, "Enter well-known endpoint URL")
+#    def update_endpoint_entry(self, event):
+ #       selected_value = self.well_known_var.get()
+  #      if selected_value:
+  #          self.endpoint_entry.delete(0, tk.END)
+  ###          self.endpoint_entry.insert(0, selected_value)
+     #   else:
+     #       self.endpoint_entry.delete(0, tk.END)
+      #      self.endpoint_entry.insert(0, "Enter well-known endpoint URL")
 
 
     def copy_item_to_clipboard(self, event):
@@ -1996,16 +2122,26 @@ class OIDCDebugger:
             response.raise_for_status()
             well_known_data = response.json()
             self.display_well_known_response(well_known_data)
+        except requests.exceptions.ConnectionError as e:
+            messagebox.showerror("Connection Error", f"Failed to connect to {well_known_url}. Please check the URL and your network connection.")
+            log_error("Connection Error", e)
+        except urllib3.exceptions.MaxRetryError as e:
+            messagebox.showerror("Max Retry Error", f"Max retries exceeded for {well_known_url}. Please check the URL and your network connection.")
+            log_error("Max Retry Error" ,e)
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Request Error", f"An error occurred while fetching the well-known configuration: {e}")
+            log_error("Request Error", e)
         except Exception as ssl_error:
-                response = requests.get(well_known_url, verify=False)
-                well_known_data = response.json()
-                self.display_well_known_response(well_known_data)
+            response = requests.get(well_known_url, verify=False)
+            well_known_data = response.json()
+            self.display_well_known_response(well_known_data)
+
         if response.status_code != 200:
                 self.response_text.insert(tk.END, f"Error fetching well-known configuration: {response.status_code}\n")
                 log_error("Unable to query Well-known Endpoint",f"{response.status_code}")
         return well_known_data
 
-    def get_oauth_tokens():
+    def get_oauth_tokens(self):
 
         config = self.fetch_well_known()
 
