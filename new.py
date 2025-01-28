@@ -2163,7 +2163,7 @@ class OIDCDebugger:
         return well_known_data
 
     def get_oauth_tokens(self):
-
+        OAUTH_DEBUG = False
         config = self.fetch_well_known()
 
         self.display_well_known_response(config)
@@ -2180,13 +2180,14 @@ class OIDCDebugger:
         scopes = self.scope_entry.get().strip()
         aud = self.aud_entry.get().strip()
 
-        print(f"Auth Endpoint: {auth_endpoint}")
-        print(f"Token Endpoint: {token_endpoint}")
-        print(f"Introspection Endpoint: {introspection_endpoint}")
-        print(f"Client ID: {client_id}")
-        print(f"Client Secret: {client_secret}")
-        print(f"Scopes: {scopes}")
-        print(f"Audience: {aud}")
+        if OAUTH_DEBUG:
+            print(f"Auth Endpoint: {auth_endpoint}")
+            print(f"Token Endpoint: {token_endpoint}")
+            print(f"Introspection Endpoint: {introspection_endpoint}")
+            print(f"Client ID: {client_id}")
+            print(f"Client Secret: {client_secret}")
+            print(f"Scopes: {scopes}")
+            print(f"Audience: {aud}")
 
 
         if not all([token_endpoint, client_id, client_secret, scopes]):
@@ -2194,14 +2195,22 @@ class OIDCDebugger:
             self.response_text.insert(tk.END, "Please fill in all fields to get tokens.")
             return
 
-    
-        data = {
-            'client_id': client_id,
-            'client_secret': client_secret,
-            'grant_type': 'client_credentials',
-            'scope': scopes,
-            'aud': aud
-        }
+        if aud:
+            data = {
+                'client_id': client_id,
+                'client_secret': client_secret,
+                'grant_type': 'client_credentials',
+                'scope': scopes,
+                'aud': aud
+            }
+        else:
+            data = {
+                'client_id': client_id,
+                'client_secret': client_secret,
+                'grant_type': 'client_credentials',
+                'scope': scopes
+            }
+
         try:
             ssl_context = create_combined_ssl_context(CA_path, cert_path) if cert_path else None
             response = requests.post(token_endpoint, data=data, verify=ssl_context)
@@ -2219,7 +2228,7 @@ class OIDCDebugger:
 
         if access_token:
             try:
-                decoded_token = decode_jwt(access_token)
+                decoded_token = self.decode_jwt(access_token)
                 self.response_text.insert(tk.END, f"Decoded Access Token:\n{decoded_token}\n\n")
             except Exception as e:
                 self.response_text.insert(tk.END, f"Error retrieving OAuth tokens: {e}")
@@ -2231,9 +2240,6 @@ class OIDCDebugger:
             self.oidc_log_text.insert(tk.END, f"Token Type:\n{token_data.get('token_type')}\n\n")
             self.oidc_log_text.insert(tk.END, f"Expires In:\n{token_data.get('expires_in')}\n\n")
             self.oidc_log_text.insert(tk.END, f"Decoded Access Token:\n{decoded_token}\n\n")
-
-
-
 
     def generate_auth_request(self):
         if self.log_oidc_process.get():
@@ -2281,15 +2287,26 @@ class OIDCDebugger:
 
             state = self.generate_state()
             nonce = self.generate_nonce()
-            params = {
-                "client_id": client_id,
-                "redirect_uri": f"https://{server_name}:{self.server_port}/callback",
-                "response_type": "code",
-                "scope": scopes,
-                "state": state,
-                "nonce": nonce,
-                "aud": aud
-            }
+            if aud:
+                params = {
+                    "client_id": client_id,
+                    "redirect_uri": f"https://{server_name}:{self.server_port}/callback",
+                    "response_type": "code",
+                    "scope": scopes,
+                    "state": state,
+                    "nonce": nonce,
+                    "aud": aud
+                }
+            else:
+                params = {
+                    "client_id": client_id,
+                    "redirect_uri": f"https://{server_name}:{self.server_port}/callback",
+                    "response_type": "code",
+                    "scope": scopes,
+                    "state": state,
+                    "nonce": nonce
+                }
+                
 
             if self.use_pkce.get():
                 code_verifier, code_challenge = self.generate_pkce()
@@ -2318,13 +2335,14 @@ class OIDCDebugger:
                 self.oidc_log_text.insert(tk.END, f"Error generating auth request: {e}\n")
             log_error("Error create OIDC Auth Request",e)
 
-        try:
+#        try:
         # Generate the self-signed certificate
-            self.generate_self_signed_cert() 
+        self.generate_self_signed_cert() 
         # Start the HTTPS server after the certificate is created
-            self.start_https_server()
-        except Exception as e:
-            self.response_text.insert(tk.END, "Web server failed.\n")
+        #    wait_for_server = threading.Thread(target=self.start_https_server)
+        self.start_https_server()
+ #       except Exception as e:
+  #          self.response_text.insert(tk.END, "Web server failed.\n")
 
 
     def generate_state(self):
@@ -2351,8 +2369,8 @@ class OIDCDebugger:
             return
         webbrowser.open(auth_url)
         self.response_text.insert(tk.END, "Please complete the authentication in your browser.\n")
-        if self.log_oidc_process.get():
-            self.oidc_log_text.insert(tk.END, f"Opened Authorization URL: {auth_url}\n")
+       # if self.log_oidc_process.get():
+        #    self.oidc_log_text.insert(tk.END, f"Opened Authorization URL: {auth_url}\n")
 
         self.response_text.insert(tk.END, f"Opened Authorization URL: {auth_url}\n")
 
@@ -2414,12 +2432,12 @@ class OIDCDebugger:
             self.response_text.delete(1.0, tk.END)
             self.response_text.insert(tk.END, "Certificate or key file not selected.\n")
 
-    def start_https_server(self):
+    def start_https_server1(self):
         global https_server, https_server_thread
 
-        if not self.start_https_server.get():
-            self.response_text.insert(tk.END, "HTTPS server start is disabled.\n")
-            return
+      #  if not self.start_https_server.get():
+       #     self.response_text.insert(tk.END, "HTTPS server start is disabled.\n")
+        #    return
 
         server_name = self.server_name_entry.get().strip()
         if not server_name:
@@ -2432,7 +2450,9 @@ class OIDCDebugger:
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"Server name '{server_name}' does not resolve. Using 127.0.0.1 instead.\n")
             server_name = "localhost"
-            
+
+        print(f"Starting HTTPS server on https://{server_name}:{self.server_port}/callback")
+
         if https_server is not None: 
             self.response_text.insert(tk.END, "HTTPS server is already running.\n")
             return
@@ -2462,6 +2482,59 @@ class OIDCDebugger:
                 self.add_horizontal_rule()
             log_error("HTTPS server Failed.", e)
     
+
+    def start_https_server(self):
+        global https_server, https_server_thread
+
+        # Check if the server is already running
+        if https_server is not None:
+            self.response_text.insert(tk.END, "HTTPS server is already running.\n")
+            return
+
+        server_name = self.server_name_entry.get().strip()
+        if not server_name:
+            server_name = "localhost"
+
+        # Check if the server name resolves
+        try:
+            socket.gethostbyname(server_name)
+        except socket.error:
+            self.response_text.insert(tk.END, f"Server name '{server_name}' does not resolve. Using 127.0.0.1 instead.\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Server name '{server_name}' does not resolve. Using 127.0.0.1 instead.\n")
+            server_name = "localhost"
+
+        print(f"Starting HTTPS server on https://{server_name}:{self.server_port}/callback")
+
+        # Ensure certificate and key files are loaded
+        if not hasattr(self, 'cert') or not hasattr(self, 'key'):
+            self.response_text.insert(tk.END, "Certificate or key not loaded. Please replace the certificate and key first.\n")
+            return
+
+        handler = self.create_https_handler()
+        https_server = socketserver.TCPServer((server_name, self.server_port), handler)
+
+        context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        context.load_cert_chain(certfile='server.crt', keyfile='server.key')
+        https_server.socket = context.wrap_socket(https_server.socket, server_side=True)
+
+        https_server_thread = threading.Thread(target=https_server.serve_forever)
+        https_server_thread.daemon = True
+        try:
+            https_server_thread.start()
+            self.response_text.insert(tk.END, f"HTTPS server started on https://{server_name}:{self.server_port}/callback\n\n")
+            self.response_text.insert(tk.END, f"Please confirm {self.client_id} has the redirect uri:  https://{server_name}:{self.server_port}/callback\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"HTTPS server started on https://{server_name}:{self.server_port}/callback\n\n")
+                self.oidc_log_text.insert(tk.END, f"Please confirm {self.client_id} has the redirect uri:  https://{server_name}:{self.server_port}/callback\n")
+                self.add_horizontal_rule()
+        except Exception as e:
+            self.response_text.insert(tk.END, f"Failed to start HTTPS server: {e}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Failed to start HTTPS server: {e}\n")
+
+
+
     def add_horizontal_rule(self):
             self.response_text.insert(tk.END, f"---------------------------------------------------\n\n")
             if self.log_oidc_process.get():
