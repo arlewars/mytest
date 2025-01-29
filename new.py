@@ -302,6 +302,7 @@ def create_well_known_dropdown(frame, well_known_entry):
     well_known_var = tk.StringVar()
     well_known_dropdown = ttk.Combobox(frame, textvariable=well_known_var)
     well_known_dropdown['values'] = [
+        'https://localhost:9031/.well-known/openid-configuration',
         'https://sso.cfi.prod.aws.southwest.com/.well-known/openid-configuration',
         'https://sso.fed.dev.aws.swacorp.com/.well-known/openid-configuration',
         'https://sso.fed.dev.aws.swalife.com/.well-known/openid-configuration',
@@ -1246,7 +1247,7 @@ def open_oauth_window(theme, aud=None):
     # Apply custom theme if it exists, otherwise apply default theme
     initial_theme = load_custom_theme()
     apply_theme(initial_theme)
-    ssl_context = create_combined_ssl_context(CA_path, cert_path) if cert_path else None
+    ssl_context = create_combined_ssl_context(CA_path, cert_path) #if cert_path else None
 
     well_known_label = ttk.Label(frame, text="OAuth Well-Known Endpoint:")
     well_known_label.grid(row=1, column=0, padx=5, pady=5, sticky="w")
@@ -1350,7 +1351,7 @@ def open_oauth_window(theme, aud=None):
                 'aud': aud_entry.get().strip()
             }
             try:
-                ssl_context = create_combined_ssl_context(CA_path, cert_path) if cert_path else None
+                ssl_context = create_combined_ssl_context(CA_path, cert_path) #if cert_path else None
                 response = requests.post(token_endpoint, data=data, verify=ssl_context)
             except Exception as ssl_error:
                 response = requests.post(token_endpoint, data=data, verify=False)
@@ -1874,17 +1875,19 @@ class ActiveDirectoryDebugger:
 
 
 class OIDCDebugger:
-    update_favorite_color=None
 
-    def __init__(self, master, theme, aud=None):
+    def __init__(self, master, theme):
         self.master = master
         self.theme = theme
-        self.aud = aud
         self.window = tk.Toplevel()
         self.window.title("OIDC Debugger")
         self.window.geometry("1400x600")
         self.server_port = 4443
-        ssl_context = create_combined_ssl_context(CA_path, cert_path) if cert_path else None
+        cert_path = certifi.where()
+        print("cert path:",cert_path)
+        ssl_context = ssl.create_default_context()
+        ssl_context.load_verify_locations(cert_path)
+        print("ssl context:",ssl_context)
         self.setup_ui()
 
     def apply_theme(self):
@@ -1942,7 +1945,7 @@ class OIDCDebugger:
 
         self.scope_entry = ttk.Entry(self.details_frame, width=20)
         self.scope_entry.grid(row=4, column=1, padx=2, pady=2, sticky="ew")
-        self.scope_entry.insert(0, "profile")
+        self.scope_entry.insert(0, "profile openid")
 
         self.aud_label = ttk.Label(self.details_frame, text="Audience (optional):")
         self.aud_label.grid(row=5, column=0, padx=2, pady=2, sticky="w")
@@ -2005,10 +2008,6 @@ class OIDCDebugger:
         self.submit_btn.grid(row=6, column=0, padx=5, pady=2)
 
         ttk.Button(self.frame, text="Get Tokens", command=self.get_oauth_tokens).grid(row=6, column=1, padx=2, pady=2)
-
-
-        self.clear_text_checkbox = tk.BooleanVar()
-        ttk.Checkbutton(self.frame, text="Clear response text\nbefore next request", variable=self.clear_text_checkbox).grid(row=7, column=0, padx=2, pady=2, sticky="w")
 
         self.log_oidc_process = tk.BooleanVar()
         ttk.Checkbutton(self.frame, text="Log OIDC process\nin separate window", variable=self.log_oidc_process).grid(row=7, column=1, padx=2, pady=2, sticky="w")
@@ -2129,7 +2128,7 @@ class OIDCDebugger:
             return
 
         try:
-            response = requests.get(well_known_url, verify=ssl_context)
+            response = requests.get(well_known_url, verify=self.ssl_context)
             response.raise_for_status()
             well_known_data = response.json()
             self.display_well_known_response(well_known_data)
@@ -2212,8 +2211,7 @@ class OIDCDebugger:
             }
 
         try:
-            ssl_context = create_combined_ssl_context(CA_path, cert_path) if cert_path else None
-            response = requests.post(token_endpoint, data=data, verify=ssl_context)
+            response = requests.post(token_endpoint, data=data, verify=self.ssl_context)
         except Exception as ssl_error:
             response = requests.post(token_endpoint, data=data, verify=False)
 
@@ -2439,6 +2437,7 @@ class OIDCDebugger:
            return
 
         server_name = self.server_name_entry.get().strip()
+        aud = self.aud_entry.get().strip()
         if not server_name:
             server_name = "localhost"
         # Check if the server name resolves
@@ -2497,10 +2496,14 @@ class OIDCDebugger:
                     query = self.path.split('?')[-1]
                     params = {k: v for k, v in (item.split('=') for item in query.split('&'))}
                     code = params.get('code')
+                    aud = params.get('aud')
                     parent.response_text.insert(tk.END, f"Received code: {code}\n")
+                    parent.response_text.insert(tk.END, f"Audience is: {aud}\n")
+
                     if parent.log_oidc_process.get():
                         parent.oidc_log_text.insert(tk.END, f"Received authorization code: {code}\n")
-                    parent.exchange_code_for_tokens(code)
+                        parent.oidc_log_text.insert(tk.END, f"Audience is: {aud}\n")
+                    parent.exchange_code_for_tokens(code, aud)
                     self.send_response(200)
                     self.send_header('Content-type', 'text/html')
                     self.end_headers()
@@ -2521,7 +2524,7 @@ class OIDCDebugger:
         return HTTPSHandler   
 
 
-    def exchange_code_for_tokens(self, code):
+    def exchange_code_for_tokens(self, code, aud):
         print(f"Exchange Code for Tokens: {code}")
       #  if not self.is_exchange_code_for_tokens.get():
       #      self.response_text.insert(tk.END, "Skipping Code Exchange, it is disabled.\n")
@@ -2530,15 +2533,17 @@ class OIDCDebugger:
         server_name = self.server_name_entry.get().strip()
         if not server_name:
             server_name = "localhost"
+        print(f"Exchange Code for Tokens: {code}")
         try:
-            if self.aud:
+            if aud:
                 data = {
                     "grant_type": "authorization_code",
                     "code": code,
                     "redirect_uri": f"https://{server_name}:{self.server_port}/callback",
                     "client_id": self.client_id,
-                    "aud": self.aud
+                    "aud": aud
                 }
+                print(f"AUD PATH Data: {data}")
             else:
                 data = {
                     "grant_type": "authorization_code",
@@ -2546,8 +2551,10 @@ class OIDCDebugger:
                     "redirect_uri": f"https://{server_name}:{self.server_port}/callback",
                     "client_id": self.client_id,
                 }
+                print(f"NO AUD PATH - Data: {data}")
 
             headers = {}
+
             if self.code_verifier:
                 data["code_verifier"] = self.code_verifier
             if self.auth_method.get() == "client_secret_post":
@@ -2588,7 +2595,7 @@ class OIDCDebugger:
                 self.response_text.insert(tk.END, f"Token Endpoint: {self.token_endpoint}\n")
                 self.response_text.insert(tk.END, f"Data: {data}\n")
 
-                response = requests.post(self.token_endpoint, data=data, headers=headers, verify=ssl_context)
+                response = requests.post(self.token_endpoint, data=data, headers=headers, verify=self.ssl_context)
             except Exception as ssl_error:
                 response = requests.post(self.token_endpoint, data=data, headers=headers, verify=False)
             #response = requests.post(self.token_endpoint, data=data, headers=headers, verify=False)
@@ -2598,16 +2605,16 @@ class OIDCDebugger:
                 if self.log_oidc_process.get():
                     self.oidc_log_text.insert(tk.END, f"Error fetching tokens: {response.status_code}\n")
                     self.add_horizontal_rule()
-
-
                 return
+            
 
-            tokens = response.json()
-            print(f"Token Exchange Response: {tokens}")
-            self.display_tokens(tokens)
-            if self.log_oidc_process.get():
-                self.oidc_log_text.insert(tk.END, f"Token Exchange Response: {json.dumps(tokens, indent=4)}\n")
-                self.add_horizontal_rule()
+            if response.status_code == 200:
+                tokens = response.json()
+                print(f"Token Exchange Response: {tokens}")
+                self.display_tokens(tokens)
+                if self.log_oidc_process.get():
+                    self.oidc_log_text.insert(tk.END, f"Token Exchange Response: {json.dumps(tokens, indent=4)}\n")
+                    self.add_horizontal_rule()
 
             
         except Exception as e:
@@ -2629,10 +2636,6 @@ class OIDCDebugger:
             # Ensure response_text is a valid Text widget
             if not isinstance(self.response_text, tk.Text):
                 raise TypeError("self.response_text is not a tk.Text widget")
-
-            # Clear the response text if the checkbox is checked
-            if self.clear_text_checkbox.get():
-                self.response_text.delete(1.0, tk.END)
 
             self.response_text.insert(tk.END, f"Display Tokens:\n")
             if self.log_oidc_process.get():
@@ -2687,14 +2690,14 @@ class OIDCDebugger:
         #if not self.is_userinfo_query.get():
          #       self.response_text.insert(tk.END, "Skipping Userinfo Query, it is disabled.\n")
           #      return
-        print(f"Userinfo Query: {token_type} token")
+        print(f"Userinfo Query: {token_type} is {token}")
         try:
             headers = {
                 'Authorization': f'Bearer {token}'
             }
 
             try:
-                response = requests.get(f"{self.userinfo_endpoint}", headers=headers, verify=ssl_context)
+                response = requests.get(f"{self.userinfo_endpoint}", headers=headers, verify=self.ssl_context)
             except Exception as ssl_error:
                 response = requests.get(f"{self.userinfo_endpoint}", headers=headers, verify=False)
             #response = requests.get(f"{self.userinfo_endpoint}", headers=headers, verify=False)
@@ -2708,6 +2711,7 @@ class OIDCDebugger:
                 return
 
             userinfo = response.json()
+            print(f"Userinfo Query Response: {userinfo}")
             self.response_text.insert(tk.END, f"UserInfo {token_type.capitalize()} Token: {json.dumps(userinfo, indent=4)}\n")
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"UserInfo {token_type.capitalize()} Token: {json.dumps(userinfo, indent=4)}\n")
@@ -2734,20 +2738,30 @@ class OIDCDebugger:
                 headers["Authorization"] = f"Basic {basic_auth}"
             elif self.auth_method.get() == "client_secret_jwt":
                 now = int(time.time())
-                payload = {
-                    "iss": self.client_id,
-                    "sub": self.client_id,
-                    "aud": self.introspect_endpoint,
-                    "exp": now + 300,  # Token expires in 5 minutes
-                    "iat": now
-                }
+                if self.aud:
+                    payload = {
+                        "iss": self.client_id,
+                        "sub": self.client_id,
+                        "aud": self.aud,
+                        "exp": now + 300,  # Token expires in 5 minutes
+                        "iat": now
+                    }
+                else:
+                    payload = {
+                        "iss": self.client_id,
+                        "sub": self.client_id,
+                        "aud": self.introspect_endpoint,
+                        "exp": now + 300,  # Token expires in 5 minutes
+                        "iat": now
+                    }
                 client_assertion = base64.b64encode(json.dumps(payload).encode('utf-8')).decode('utf-8')
                 data["client_assertion"] = client_assertion
                 data["client_assertion_type"] = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
 
             try:
-                response = requests.post(self.introspect_endpoint, data=data, headers=headers, verify=ssl_context)
+                response = requests.post(self.introspect_endpoint, data=data, headers=headers, verify=self.ssl_context)
             except Exception as ssl_error:
+                print(f"SSL Error: {ssl_error}")
                 response = requests.post(self.introspect_endpoint, data=data, headers=headers, verify=False)
             #response = requests.post(self.introspect_endpoint, data=data, headers=headers, verify=False)
 

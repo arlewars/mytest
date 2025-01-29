@@ -1,816 +1,141 @@
 [
     {
-        "timestamp": "2025-01-28 15:20:16",
+        "timestamp": "2025-01-29 08:36:07",
         "message": "Version check failed",
         "exception": "Expecting value: line 1 column 1 (char 0)"
     },
     {
-        "timestamp": "2025-01-28 15:20:16",
+        "timestamp": "2025-01-29 08:36:07",
         "message": "Async DNS resolution failed",
         "exception": "(4, 'Domain name not found')"
     },
     {
-        "timestamp": "2025-01-28 15:20:16",
+        "timestamp": "2025-01-29 08:36:07",
         "message": "Synchronous DNS resolution failed",
         "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
     },
     {
-        "timestamp": "2025-01-28 15:20:16",
+        "timestamp": "2025-01-29 08:36:08",
         "message": "Async DNS resolution failed",
         "exception": "(4, 'Domain name not found')"
     },
     {
-        "timestamp": "2025-01-28 15:20:16",
+        "timestamp": "2025-01-29 08:36:08",
         "message": "Synchronous DNS resolution failed",
         "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
     },
     {
-        "timestamp": "2025-01-28 15:20:16",
+        "timestamp": "2025-01-29 08:36:08",
         "message": "Async DNS resolution failed",
         "exception": "(4, 'Domain name not found')"
     },
     {
-        "timestamp": "2025-01-28 15:20:16",
+        "timestamp": "2025-01-29 08:36:08",
         "message": "Synchronous DNS resolution failed",
         "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
     },
     {
-        "timestamp": "2025-01-28 15:28:40",
+        "timestamp": "2025-01-29 08:45:08",
         "message": "Version check failed",
         "exception": "Expecting value: line 1 column 1 (char 0)"
     },
     {
-        "timestamp": "2025-01-28 15:28:40",
+        "timestamp": "2025-01-29 08:45:08",
         "message": "Async DNS resolution failed",
         "exception": "(4, 'Domain name not found')"
     },
     {
-        "timestamp": "2025-01-28 15:28:40",
+        "timestamp": "2025-01-29 08:45:08",
         "message": "Synchronous DNS resolution failed",
         "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
     },
     {
-        "timestamp": "2025-01-28 15:28:40",
+        "timestamp": "2025-01-29 08:45:08",
         "message": "Async DNS resolution failed",
         "exception": "(4, 'Domain name not found')"
     },
     {
-        "timestamp": "2025-01-28 15:28:40",
+        "timestamp": "2025-01-29 08:45:08",
         "message": "Synchronous DNS resolution failed",
         "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
     },
     {
-        "timestamp": "2025-01-28 15:28:40",
+        "timestamp": "2025-01-29 08:45:08",
         "message": "Async DNS resolution failed",
         "exception": "(4, 'Domain name not found')"
     },
     {
-        "timestamp": "2025-01-28 15:28:40",
+        "timestamp": "2025-01-29 08:45:08",
         "message": "Synchronous DNS resolution failed",
         "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
     },
     {
-        "timestamp": "2025-01-28 15:34:23",
+        "timestamp": "2025-01-29 08:53:19",
         "message": "Version check failed",
         "exception": "Expecting value: line 1 column 1 (char 0)"
     },
     {
-        "timestamp": "2025-01-28 15:34:23",
+        "timestamp": "2025-01-29 08:53:20",
         "message": "Async DNS resolution failed",
         "exception": "(4, 'Domain name not found')"
     },
     {
-        "timestamp": "2025-01-28 15:34:23",
+        "timestamp": "2025-01-29 08:53:20",
         "message": "Synchronous DNS resolution failed",
         "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
     },
     {
-        "timestamp": "2025-01-28 15:34:23",
+        "timestamp": "2025-01-29 08:53:20",
         "message": "Async DNS resolution failed",
         "exception": "(4, 'Domain name not found')"
     },
     {
-        "timestamp": "2025-01-28 15:34:23",
+        "timestamp": "2025-01-29 08:53:20",
         "message": "Synchronous DNS resolution failed",
         "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
     },
     {
-        "timestamp": "2025-01-28 15:34:23",
+        "timestamp": "2025-01-29 08:53:20",
         "message": "Async DNS resolution failed",
         "exception": "(4, 'Domain name not found')"
     },
     {
-        "timestamp": "2025-01-28 15:34:23",
+        "timestamp": "2025-01-29 08:53:20",
         "message": "Synchronous DNS resolution failed",
         "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
     },
     {
-        "timestamp": "2025-01-28 15:40:23",
+        "timestamp": "2025-01-29 08:57:19",
         "message": "Version check failed",
         "exception": "Expecting value: line 1 column 1 (char 0)"
     },
     {
-        "timestamp": "2025-01-28 15:40:23",
+        "timestamp": "2025-01-29 08:57:19",
         "message": "Async DNS resolution failed",
         "exception": "(4, 'Domain name not found')"
     },
     {
-        "timestamp": "2025-01-28 15:40:23",
+        "timestamp": "2025-01-29 08:57:19",
         "message": "Synchronous DNS resolution failed",
         "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
     },
     {
-        "timestamp": "2025-01-28 15:40:23",
+        "timestamp": "2025-01-29 08:57:19",
         "message": "Async DNS resolution failed",
         "exception": "(4, 'Domain name not found')"
     },
     {
-        "timestamp": "2025-01-28 15:40:23",
+        "timestamp": "2025-01-29 08:57:19",
         "message": "Synchronous DNS resolution failed",
         "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
     },
     {
-        "timestamp": "2025-01-28 15:40:23",
+        "timestamp": "2025-01-29 08:57:20",
         "message": "Async DNS resolution failed",
         "exception": "(4, 'Domain name not found')"
     },
     {
-        "timestamp": "2025-01-28 15:40:23",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 15:47:10",
-        "message": "Version check failed",
-        "exception": "Expecting value: line 1 column 1 (char 0)"
-    },
-    {
-        "timestamp": "2025-01-28 15:47:10",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 15:47:10",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 15:47:10",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 15:47:10",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 15:47:10",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 15:47:10",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 15:57:05",
-        "message": "Version check failed",
-        "exception": "Expecting value: line 1 column 1 (char 0)"
-    },
-    {
-        "timestamp": "2025-01-28 15:57:05",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 15:57:05",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 15:57:06",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 15:57:06",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 15:57:06",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 15:57:06",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 16:05:03",
-        "message": "Version check failed",
-        "exception": "Expecting value: line 1 column 1 (char 0)"
-    },
-    {
-        "timestamp": "2025-01-28 16:05:03",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 16:05:03",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 16:05:03",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 16:05:04",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 16:05:04",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 16:05:04",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 16:11:05",
-        "message": "Version check failed",
-        "exception": "Expecting value: line 1 column 1 (char 0)"
-    },
-    {
-        "timestamp": "2025-01-28 16:11:05",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 16:11:05",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 16:11:05",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 16:11:05",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 16:11:05",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 16:11:05",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 16:21:05",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 16:21:05",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 16:21:05",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 16:21:05",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 16:21:05",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 16:21:05",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 16:31:06",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 16:31:06",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 16:31:06",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 16:31:06",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 16:31:06",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 16:31:06",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 17:08:52",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 17:08:52",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 17:08:52",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 17:08:52",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 17:08:52",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 17:08:52",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 17:17:30",
-        "message": "Version check failed",
-        "exception": "Expecting value: line 1 column 1 (char 0)"
-    },
-    {
-        "timestamp": "2025-01-28 17:17:30",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 17:17:30",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 17:17:30",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 17:17:30",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 17:17:30",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 17:17:30",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 17:27:30",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 17:27:30",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 17:27:30",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 17:27:30",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 17:27:30",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 17:27:30",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 17:37:31",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 17:37:31",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 17:37:31",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 17:37:31",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 17:37:31",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 17:37:31",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 17:47:32",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 17:47:32",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 17:47:32",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 17:47:32",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 17:47:32",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 17:47:32",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 17:57:33",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 17:57:33",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 17:57:33",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 17:57:33",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 17:57:33",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 17:57:33",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 18:07:34",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 18:07:34",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 18:07:34",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 18:07:34",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 18:07:34",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 18:07:34",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 18:17:35",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 18:17:35",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 18:17:35",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 18:17:35",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 18:17:35",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 18:17:35",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 18:27:36",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 18:27:36",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 18:27:36",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 18:27:36",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 18:27:36",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 18:27:36",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 20:22:06",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 20:22:07",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 20:22:07",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 20:22:07",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 20:22:07",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 20:22:07",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 20:28:59",
-        "message": "Version check failed",
-        "exception": "Expecting value: line 1 column 1 (char 0)"
-    },
-    {
-        "timestamp": "2025-01-28 20:28:59",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 20:28:59",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 20:28:59",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 20:28:59",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 20:28:59",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 20:28:59",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 20:38:59",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 20:38:59",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 20:38:59",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 20:38:59",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 20:38:59",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 20:38:59",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 20:40:43",
-        "message": "Version check failed",
-        "exception": "Expecting value: line 1 column 1 (char 0)"
-    },
-    {
-        "timestamp": "2025-01-28 20:40:43",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 20:40:43",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 20:40:43",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 20:40:43",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 20:40:43",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 20:40:43",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 20:49:05",
-        "message": "Version check failed",
-        "exception": "Expecting value: line 1 column 1 (char 0)"
-    },
-    {
-        "timestamp": "2025-01-28 20:49:05",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 20:49:05",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 20:49:06",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 20:49:06",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 20:49:06",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 20:49:06",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 20:52:13",
-        "message": "Version check failed",
-        "exception": "Expecting value: line 1 column 1 (char 0)"
-    },
-    {
-        "timestamp": "2025-01-28 20:52:13",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 20:52:13",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.prod.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 20:52:13",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 20:52:13",
-        "message": "Synchronous DNS resolution failed",
-        "exception": "The DNS query name does not exist: sso.fed.qa.aws.swacorp.com."
-    },
-    {
-        "timestamp": "2025-01-28 20:52:13",
-        "message": "Async DNS resolution failed",
-        "exception": "(4, 'Domain name not found')"
-    },
-    {
-        "timestamp": "2025-01-28 20:52:13",
+        "timestamp": "2025-01-29 08:57:20",
         "message": "Synchronous DNS resolution failed",
         "exception": "The DNS query name does not exist: sso.fed.dev.aws.swacorp.com."
     }
