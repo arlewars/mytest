@@ -2464,11 +2464,8 @@ class OIDCDebugger:
             return
 
         try:
-
             handler = self.create_https_handler(aud)
             https_server = socketserver.TCPServer((server_name, self.server_port), lambda *args, **kwargs: handler(*args, parent=self, **kwargs))
-
-          #  https_server = socketserver.TCPServer((server_name, self.server_port), handler)
             print("Debug: HTTPS server handler created successfully")
         except Exception as e:
             self.response_text.insert(tk.END, f"Failed to create HTTPS server handler: {e}\n")
