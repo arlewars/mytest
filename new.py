@@ -2329,7 +2329,7 @@ class OIDCDebugger:
             # Generate the self-signed certificate
             self.generate_self_signed_cert() 
             # Start the HTTPS server after the certificate is created
-            self.start_https_server()        
+            self.start_https_server(aud)        
         except Exception as e:
             self.response_text.insert(tk.END, "Web server failed.\n")
             if self.log_oidc_process.get():
@@ -2424,22 +2424,28 @@ class OIDCDebugger:
             self.response_text.delete(1.0, tk.END)
             self.response_text.insert(tk.END, "Certificate or key file not selected.\n")
 
-    def start_https_server(self):
+    def start_https_server(self, aud):
         global https_server, https_server_thread
+
+        print("Debug: Entered start_https_server method")
 
         if not self.start_is_https_server.get():
             self.response_text.insert(tk.END, "HTTPS server start is disabled.\n")
+            print("Debug: HTTPS server start is disabled")
             return
 
         server_name = self.server_name_entry.get().strip()
-        aud = self.aud_entry.get().strip()  # Retrieve the aud value from the entry widget
         if not server_name:
             server_name = "localhost"
+        print(f"Debug: Server name is '{server_name}'")
+
         # Check if the server name resolves
         try:
             socket.gethostbyname(server_name)
+            print(f"Debug: Server name '{server_name}' resolves successfully")
         except socket.error:
             self.response_text.insert(tk.END, f"Server name '{server_name}' does not resolve. Using 127.0.0.1 instead.\n")
+            print(f"Debug: Server name '{server_name}' does not resolve. Using 127.0.0.1 instead")
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"Server name '{server_name}' does not resolve. Using 127.0.0.1 instead.\n")
             server_name = "localhost"
@@ -2448,14 +2454,27 @@ class OIDCDebugger:
 
         if https_server is not None: 
             self.response_text.insert(tk.END, "HTTPS server is already running.\n")
+            print("Debug: HTTPS server is already running")
             return
 
-        handler = self.create_https_handler()
-        https_server = socketserver.TCPServer((server_name, self.server_port), handler)
+        try:
+            handler = self.create_https_handler()
+            https_server = socketserver.TCPServer((server_name, self.server_port), handler)
+            print("Debug: HTTPS server handler created successfully")
+        except Exception as e:
+            self.response_text.insert(tk.END, f"Failed to create HTTPS server handler: {e}\n")
+            print(f"Debug: Failed to create HTTPS server handler: {e}")
+            return
 
-        context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        context.load_cert_chain(certfile='server.crt', keyfile='server.key')
-        https_server.socket = context.wrap_socket(https_server.socket, server_side=True)
+        try:
+            context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+            context.load_cert_chain(certfile='server.crt', keyfile='server.key')
+            https_server.socket = context.wrap_socket(https_server.socket, server_side=True)
+            print("Debug: SSL context created and certificate loaded successfully")
+        except Exception as e:
+            self.response_text.insert(tk.END, f"Failed to create SSL context or load certificate: {e}\n")
+            print(f"Debug: Failed to create SSL context or load certificate: {e}")
+            return
 
         https_server_thread = threading.Thread(target=https_server.serve_forever)
         https_server_thread.daemon = True
@@ -2463,13 +2482,14 @@ class OIDCDebugger:
             https_server_thread.start()
             self.response_text.insert(tk.END, f"HTTPS server started on https://{server_name}:{self.server_port}/callback\n\n")
             self.response_text.insert(tk.END, f"Please confirm {self.client_id} has the redirect uri:  https://{server_name}:{self.server_port}/callback\n")
+            print(f"Debug: HTTPS server started on https://{server_name}:{self.server_port}/callback")
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"HTTPS server started on https://{server_name}:{self.server_port}/callback\n\n")
                 self.oidc_log_text.insert(tk.END, f"Please confirm {self.client_id} has the redirect uri:  https://{server_name}:{self.server_port}/callback\n")
                 self.add_horizontal_rule()
-
         except Exception as e:
             self.response_text.insert(tk.END, f"HTTPS server https://{server_name}:{self.server_port} Failed.\n")
+            print(f"Debug: HTTPS server https://{server_name}:{self.server_port} Failed: {e}")
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"HTTPS server https://{server_name}:{self.server_port} Failed.: {e}\n")
                 self.add_horizontal_rule()
@@ -2482,7 +2502,7 @@ class OIDCDebugger:
                 self.oidc_log_text.insert(tk.END, f"---------------------------------------------------\n\n")
 
     
-    def create_https_handler(self):
+    def create_https_handler(self, aud):
         parent = self
         print(f"Create HTTPS Handler: {parent}")
         class HTTPSHandler(http.server.SimpleHTTPRequestHandler):
@@ -2491,7 +2511,6 @@ class OIDCDebugger:
                     query = self.path.split('?')[-1]
                     params = {k: v for k, v in (item.split('=') for item in query.split('&'))}
                     code = params.get('code')
-                    aud = self.server.aud_entry.get().strip()
                     parent.response_text.insert(tk.END, f"Received code: {code}\n")
                     parent.response_text.insert(tk.END, f"Audience is: {aud}\n")
 
@@ -2514,7 +2533,7 @@ class OIDCDebugger:
 
 
 
-    def exchange_code_for_tokens(self, code):
+    def exchange_code_for_tokens(self, code, aud):
         print(f"Exchange Code for Tokens: {code}")
       #  if not self.is_exchange_code_for_tokens.get():
       #      self.response_text.insert(tk.END, "Skipping Code Exchange, it is disabled.\n")
@@ -2552,10 +2571,14 @@ class OIDCDebugger:
                 payload = {
                     "iss": self.client_id,
                     "sub": self.client_id,
-                    "aud": self.aud,
                     "exp": now + 300,  # Token expires in 5 minutes
                     "iat": now
                 }
+            if aud:
+                payload["aud"] = aud
+                print(f"AUD PATH Data: {data}")
+            else:
+                print(f"NO AUD PATH - Data: {data}")
 
                 def base64url_encode(input):
                     return base64.urlsafe_b64encode(input).decode('utf-8').rstrip('=')
