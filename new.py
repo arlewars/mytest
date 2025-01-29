@@ -2245,7 +2245,6 @@ class OIDCDebugger:
         if self.log_oidc_process.get():
             self.open_oidc_log_window()
         
-
         well_known_url = self.well_known_entry.get()
         if not well_known_url:
              well_known_url = self.endpoint_entry.get().strip()
@@ -2266,14 +2265,11 @@ class OIDCDebugger:
             return
 
         try:
-
-
             config = self.fetch_well_known()
 
             self.display_well_known_response(config)
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"Well-known configuration response:\n{json.dumps(config, indent=4)}\n")
-
 
             auth_endpoint = config.get("authorization_endpoint")
             token_endpoint = config.get("token_endpoint")
@@ -2287,28 +2283,20 @@ class OIDCDebugger:
 
             state = self.generate_state()
             nonce = self.generate_nonce()
+            params = {
+                "client_id": client_id,
+                "redirect_uri": f"https://{server_name}:{self.server_port}/callback",
+                "response_type": "code",
+                "scope": scopes,
+                "state": state,
+                "nonce": nonce
+            }
+
             if aud:
-                params = {
-                    "client_id": client_id,
-                    "redirect_uri": f"https://{server_name}:{self.server_port}/callback",
-                    "response_type": "code",
-                    "scope": scopes,
-                    "state": state,
-                    "nonce": nonce,
-                    "aud": aud
-                }
-                print("With Aud Params:",params)
+                params["aud"] = aud
+                print("With Aud Params:", params)
             else:
-                params = {
-                    "client_id": client_id,
-                    "redirect_uri": f"https://{server_name}:{self.server_port}/callback",
-                    "response_type": "code",
-                    "scope": scopes,
-                    "state": state,
-                    "nonce": nonce
-                }
-                print("Without Aud Params:",params)
-                
+                print("Without Aud Params:", params)
 
             if self.use_pkce.get():
                 code_verifier, code_challenge = self.generate_pkce()
@@ -2335,15 +2323,18 @@ class OIDCDebugger:
             self.response_text.insert(tk.END, f"Error generating auth request: {e}\n")
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"Error generating auth request: {e}\n")
-            log_error("Error create OIDC Auth Request",e)
+            log_error("Error create OIDC Auth Request", e)
 
         try:
-        # Generate the self-signed certificate
+            # Generate the self-signed certificate
             self.generate_self_signed_cert() 
             # Start the HTTPS server after the certificate is created
             self.start_https_server()        
         except Exception as e:
             self.response_text.insert(tk.END, "Web server failed.\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, "Web server failed.\n")
+            log_error("Web server failed", e)
 
 
     def generate_state(self):
@@ -2437,11 +2428,11 @@ class OIDCDebugger:
         global https_server, https_server_thread
 
         if not self.start_is_https_server.get():
-           self.response_text.insert(tk.END, "HTTPS server start is disabled.\n")
-           return
+            self.response_text.insert(tk.END, "HTTPS server start is disabled.\n")
+            return
 
         server_name = self.server_name_entry.get().strip()
-        aud = self.aud_entry.get().strip()
+        aud = self.aud_entry.get().strip()  # Retrieve the aud value from the entry widget
         if not server_name:
             server_name = "localhost"
         # Check if the server name resolves
@@ -2517,15 +2508,10 @@ class OIDCDebugger:
                     self.send_error(404, "Not Found")
 
             def do_POST(self):
-                if self.path == '/kill_server':
-                    threading.Thread(target=shutdown_https_server).start()
-                    self.send_response(200)
-                    self.send_header('Content-type', 'text/html')
-                    self.end_headers()
-                    self.wfile.write(b"Server shutdown initiated.")
-                if parent.log_oidc_process.get():
-                    parent.oidc_log_text.insert(tk.END, "Server shutdown initiated.\n")
-        return HTTPSHandler   
+                self.send_error(405, "Method Not Allowed")
+
+        return HTTPSHandler
+
 
 
     def exchange_code_for_tokens(self, code, aud):
@@ -2551,7 +2537,7 @@ class OIDCDebugger:
                 print(f"AUD PATH Data: {data}")
             else:
                 print(f"NO AUD PATH - Data: {data}")
-                
+
             headers = {}
 
             if self.code_verifier:
