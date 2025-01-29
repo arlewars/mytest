@@ -1916,6 +1916,7 @@ class OIDCDebugger:
 
         self.redirect_url_entry = ttk.Entry(self.endpoint_frame, width=72)
         self.redirect_url_entry.grid(row=4, column=0, padx=2, pady=2, sticky="ew")
+        self.redirect_url_entry.insert(0, "https://localhost:4443/callback")
 
         # Adding more space between endpoint_frame and details_frame
         self.spacer_frame = ttk.Frame(self.frame, padding="10")
@@ -2463,8 +2464,11 @@ class OIDCDebugger:
             return
 
         try:
+
             handler = self.create_https_handler(aud)
-            https_server = socketserver.TCPServer((server_name, self.server_port), handler)
+            https_server = socketserver.TCPServer((server_name, self.server_port), lambda *args, **kwargs: handler(*args, parent=self, **kwargs))
+
+          #  https_server = socketserver.TCPServer((server_name, self.server_port), handler)
             print("Debug: HTTPS server handler created successfully")
         except Exception as e:
             self.response_text.insert(tk.END, f"Failed to create HTTPS server handler: {e}\n")
@@ -2509,18 +2513,20 @@ class OIDCDebugger:
 
     
     def create_https_handler(self, aud):
-        parent = self
-
         class HTTPSHandler(http.server.SimpleHTTPRequestHandler):
+            def __init__(self, *args, **kwargs):
+                self.parent = parent
+                super().__init__(*args, directory=os.getcwd(), **kwargs)
+
             def do_GET(self):
                 if self.path.startswith('/callback'):
                     query = self.path.split('?')[-1]
                     params = {k: v for k, v in (item.split('=') for item in query.split('&'))}
                     code = params.get('code')
-                    parent.response_text.insert(tk.END, f"Received code: {code}\n")
-                    if parent.log_oidc_process.get():
-                        parent.oidc_log_text.insert(tk.END, f"Received authorization code: {code}\n")
-                    parent.exchange_code_for_tokens(code, aud)
+                    self.parent.response_text.insert(tk.END, f"Received code: {code}\n")
+                    if self.parent.log_oidc_process.get():
+                        self.parent.oidc_log_text.insert(tk.END, f"Received authorization code: {code}\n")
+                    self.parent.exchange_code_for_tokens(code, aud)
                     self.send_response(200)
                     self.send_header('Content-type', 'text/html')
                     self.end_headers()
