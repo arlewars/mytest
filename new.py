@@ -1910,6 +1910,12 @@ class OIDCDebugger:
         self.well_known_entry.grid(row=2, column=0, padx=2, pady=2, sticky="ew")
         self.well_known_dropdown = create_well_known_dropdown(self.endpoint_frame, self.well_known_entry)
 
+        # Adding custom redirect URL entry
+        self.redirect_url_label = ttk.Label(self.endpoint_frame, text="Enter custom redirect URL:")
+        self.redirect_url_label.grid(row=3, column=0, padx=2, pady=2, sticky="w")
+
+        self.redirect_url_entry = ttk.Entry(self.endpoint_frame, width=72)
+        self.redirect_url_entry.grid(row=4, column=0, padx=2, pady=2, sticky="ew")
 
         # Adding more space between endpoint_frame and details_frame
         self.spacer_frame = ttk.Frame(self.frame, padding="10")
@@ -2006,8 +2012,6 @@ class OIDCDebugger:
         
         self.submit_btn = ttk.Button(self.frame, text="Submit Auth Request", command=self.submit_auth_request)
         self.submit_btn.grid(row=6, column=0, padx=5, pady=2)
-
-        ttk.Button(self.frame, text="Get Tokens", command=self.get_oauth_tokens).grid(row=6, column=1, padx=2, pady=2)
 
         self.log_oidc_process = tk.BooleanVar()
         ttk.Checkbutton(self.frame, text="Log OIDC process\nin separate window", variable=self.log_oidc_process).grid(row=7, column=1, padx=2, pady=2, sticky="w")
@@ -2252,6 +2256,7 @@ class OIDCDebugger:
         client_id = self.client_id_entry.get().strip()
         client_secret = self.client_secret_entry.get().strip()
         scopes = self.scope_entry.get().strip()
+        redirect_url = self.redirect_url_entry.get().strip()
         server_name = self.server_name_entry.get().strip()
         aud = self.aud_entry.get().strip()
 
@@ -2285,7 +2290,7 @@ class OIDCDebugger:
             nonce = self.generate_nonce()
             params = {
                 "client_id": client_id,
-                "redirect_uri": f"https://{server_name}:{self.server_port}/callback",
+                "redirect_uri": redirect_url,
                 "response_type": "code",
                 "scope": scopes,
                 "state": state,
@@ -2458,7 +2463,7 @@ class OIDCDebugger:
             return
 
         try:
-            handler = self.create_https_handler()
+            handler = self.create_https_handler(aud)
             https_server = socketserver.TCPServer((server_name, self.server_port), handler)
             print("Debug: HTTPS server handler created successfully")
         except Exception as e:
@@ -2501,10 +2506,11 @@ class OIDCDebugger:
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"---------------------------------------------------\n\n")
 
+
     
     def create_https_handler(self, aud):
         parent = self
-        print(f"Create HTTPS Handler: {parent}")
+
         class HTTPSHandler(http.server.SimpleHTTPRequestHandler):
             def do_GET(self):
                 if self.path.startswith('/callback'):
@@ -2512,12 +2518,9 @@ class OIDCDebugger:
                     params = {k: v for k, v in (item.split('=') for item in query.split('&'))}
                     code = params.get('code')
                     parent.response_text.insert(tk.END, f"Received code: {code}\n")
-                    parent.response_text.insert(tk.END, f"Audience is: {aud}\n")
-
                     if parent.log_oidc_process.get():
                         parent.oidc_log_text.insert(tk.END, f"Received authorization code: {code}\n")
-                        parent.oidc_log_text.insert(tk.END, f"Audience is: {aud}\n")
-                    parent.exchange_code_for_tokens(code)
+                    parent.exchange_code_for_tokens(code, aud)
                     self.send_response(200)
                     self.send_header('Content-type', 'text/html')
                     self.end_headers()
@@ -2527,10 +2530,15 @@ class OIDCDebugger:
                     self.send_error(404, "Not Found")
 
             def do_POST(self):
-                self.send_error(405, "Method Not Allowed")
-
-        return HTTPSHandler
-
+                if self.path == '/kill_server':
+                    threading.Thread(target=shutdown_https_server).start()
+                    self.send_response(200)
+                    self.send_header('Content-type', 'text/html')
+                    self.end_headers()
+                    self.wfile.write(b"Server shutdown initiated.")
+                if parent.log_oidc_process.get():
+                    parent.oidc_log_text.insert(tk.END, "Server shutdown initiated.\n")
+        return HTTPSHandler    
 
 
     def exchange_code_for_tokens(self, code, aud):
@@ -2542,20 +2550,18 @@ class OIDCDebugger:
         server_name = self.server_name_entry.get().strip()
         if not server_name:
             server_name = "localhost"
-        print(f"Exchange Code for Tokens: {code}")
         try:
             data = {
                 "grant_type": "authorization_code",
                 "code": code,
-                "redirect_uri": f"https://{server_name}:{self.server_port}/callback",
+                "redirect_uri": self.redirect_url_entry.get().strip(),
                 "client_id": self.client_id,
             }
-            aud = self.aud_entry.get().strip()
             if aud:
                 data["aud"] = aud
-                print(f"AUD PATH Data: {data}")
+                print(f"Exchange code: AUD PATH Data: {data}")
             else:
-                print(f"NO AUD PATH - Data: {data}")
+                print(f"Exchange code: NO AUD PATH - Data: {data}")
 
             headers = {}
 
@@ -2573,12 +2579,12 @@ class OIDCDebugger:
                     "sub": self.client_id,
                     "exp": now + 300,  # Token expires in 5 minutes
                     "iat": now
-                }
-            if aud:
-                payload["aud"] = aud
-                print(f"AUD PATH Data: {data}")
-            else:
-                print(f"NO AUD PATH - Data: {data}")
+                }                
+                if aud:
+                    payload["aud"] = aud
+                    print(f"AUD PATH Data: {data}")
+                else:
+                    print(f"NO AUD PATH - Data: {data}")
 
                 def base64url_encode(input):
                     return base64.urlsafe_b64encode(input).decode('utf-8').rstrip('=')
@@ -2592,6 +2598,9 @@ class OIDCDebugger:
                 client_assertion = f"{encoded_header}.{encoded_payload}.{signature}"
                 data["client_assertion"] = client_assertion
                 data["client_assertion_type"] = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+            
+            print(f"Token Exchange Data: {data}")
+            print("sending request..")
 
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"Token Exchange Request Data: {json.dumps(data, indent=4)}\n")
@@ -2736,8 +2745,8 @@ class OIDCDebugger:
             data = {
                 "token": token,
                 "token_type_hint": "access_token",
-                "client_id": self.client_id,
-                "aud": self.aud
+                "client_id": self.client_id
+          #      "aud": self.aud
             }
             headers = {}
             if self.auth_method.get() == "client_secret_post":
