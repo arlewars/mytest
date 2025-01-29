@@ -2491,14 +2491,14 @@ class OIDCDebugger:
                     query = self.path.split('?')[-1]
                     params = {k: v for k, v in (item.split('=') for item in query.split('&'))}
                     code = params.get('code')
-                    aud = params.get('aud')
+                    aud = self.server.aud_entry.get().strip()
                     parent.response_text.insert(tk.END, f"Received code: {code}\n")
                     parent.response_text.insert(tk.END, f"Audience is: {aud}\n")
 
                     if parent.log_oidc_process.get():
                         parent.oidc_log_text.insert(tk.END, f"Received authorization code: {code}\n")
                         parent.oidc_log_text.insert(tk.END, f"Audience is: {aud}\n")
-                    parent.exchange_code_for_tokens(code, aud)
+                    parent.exchange_code_for_tokens(code)
                     self.send_response(200)
                     self.send_header('Content-type', 'text/html')
                     self.end_headers()
@@ -2514,7 +2514,7 @@ class OIDCDebugger:
 
 
 
-    def exchange_code_for_tokens(self, code, aud):
+    def exchange_code_for_tokens(self, code):
         print(f"Exchange Code for Tokens: {code}")
       #  if not self.is_exchange_code_for_tokens.get():
       #      self.response_text.insert(tk.END, "Skipping Code Exchange, it is disabled.\n")
@@ -2531,7 +2531,7 @@ class OIDCDebugger:
                 "redirect_uri": f"https://{server_name}:{self.server_port}/callback",
                 "client_id": self.client_id,
             }
-
+            aud = self.aud_entry.get().strip()
             if aud:
                 data["aud"] = aud
                 print(f"AUD PATH Data: {data}")
