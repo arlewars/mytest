@@ -2162,7 +2162,7 @@ class OIDCDebugger:
         return well_known_data
 
     def get_oauth_tokens(self):
-        OAUTH_DEBUG = False
+        OAUTH_DEBUG = True
         config = self.fetch_well_known()
 
         self.display_well_known_response(config)
@@ -2202,6 +2202,7 @@ class OIDCDebugger:
                 'scope': scopes,
                 'aud': aud
             }
+            print("With Aud Data:",data)
         else:
             data = {
                 'client_id': client_id,
@@ -2209,6 +2210,7 @@ class OIDCDebugger:
                 'grant_type': 'client_credentials',
                 'scope': scopes
             }
+            print("Without Aud Data:",data)
 
         try:
             response = requests.post(token_endpoint, data=data, verify=self.ssl_context)
@@ -2295,6 +2297,7 @@ class OIDCDebugger:
                     "nonce": nonce,
                     "aud": aud
                 }
+                print("With Aud Params:",params)
             else:
                 params = {
                     "client_id": client_id,
@@ -2304,6 +2307,7 @@ class OIDCDebugger:
                     "state": state,
                     "nonce": nonce
                 }
+                print("Without Aud Params:",params)
                 
 
             if self.use_pkce.get():
@@ -2727,8 +2731,9 @@ class OIDCDebugger:
         try:
             data = {
                 "token": token,
-                "token_type_hint": token_type,
+                "token_type_hint": "access_token",
                 "client_id": self.client_id,
+                "aud": self.aud
             }
             headers = {}
             if self.auth_method.get() == "client_secret_post":
