@@ -2539,24 +2539,19 @@ class OIDCDebugger:
             server_name = "localhost"
         print(f"Exchange Code for Tokens: {code}")
         try:
+            data = {
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": f"https://{server_name}:{self.server_port}/callback",
+                "client_id": self.client_id,
+            }
+
             if aud:
-                data = {
-                    "grant_type": "authorization_code",
-                    "code": code,
-                    "redirect_uri": f"https://{server_name}:{self.server_port}/callback",
-                    "client_id": self.client_id,
-                    "aud": aud
-                }
+                data["aud"] = aud
                 print(f"AUD PATH Data: {data}")
             else:
-                data = {
-                    "grant_type": "authorization_code",
-                    "code": code,
-                    "redirect_uri": f"https://{server_name}:{self.server_port}/callback",
-                    "client_id": self.client_id,
-                }
                 print(f"NO AUD PATH - Data: {data}")
-
+                
             headers = {}
 
             if self.code_verifier:
