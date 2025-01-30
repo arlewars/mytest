@@ -2460,57 +2460,24 @@ class OIDCDebugger:
         https_server_thread.daemon = True
         try:
             https_server_thread.start()
-            self.write_to_response_text(f"HTTPS server started on https://{server_name}:{self.server_port}/callback\n\n")
-            self.write_to_response_text (f"Please confirm {self.client_id} has the redirect uri:  https://{server_name}:{self.server_port}/callback\n")
+            self.schedule_ui_update(f"HTTPS server started on https://{server_name}:{self.server_port}/callback\n\n")
+            self.schedule_ui_update(f"Please confirm {self.client_id} has the redirect uri: https://{server_name}:{self.server_port}/callback\n")
             if self.log_oidc_process.get():
-                self.oidc_log_text.insert(tk.END, f"HTTPS server started on https://{server_name}:{self.server_port}/callback\n\n")
-                self.oidc_log_text.insert(tk.END, f"Please confirm {self.client_id} has the redirect uri:  https://{server_name}:{self.server_port}/callback\n")
+                self.schedule_ui_update(f"HTTPS server started on https://{server_name}:{self.server_port}/callback\n\n", log=True)
+                self.schedule_ui_update(f"Please confirm {self.client_id} has the redirect uri: https://{server_name}:{self.server_port}/callback\n", log=True)
                 self.add_horizontal_rule()
-
         except Exception as e:
-            self.write_to_response_text( f"HTTPS server https://{server_name}:{self.server_port} Failed.\n")
+            self.schedule_ui_update(f"HTTPS server https://{server_name}:{self.server_port} Failed.\n")
             if self.log_oidc_process.get():
-                self.oidc_log_text.insert(tk.END, f"HTTPS server https://{server_name}:{self.server_port} Failed.: {e}\n")
+                self.schedule_ui_update(f"HTTPS server https://{server_name}:{self.server_port} Failed.: {e}\n", log=True)
                 self.add_horizontal_rule()
-            log_error("HTTPS server Failed.", e)
+            self.log_error("HTTPS server Failed.", e)
     
-    def create_https_handler(self):
-        parent = self
-
-        class HTTPSHandler(http.server.SimpleHTTPRequestHandler):
-            def do_GET(self):
-                if self.path.startswith('/callback'):
-                    query = self.path.split('?')[-1]
-                    params = {k: v for k, v in (item.split('=') for item in query.split('&'))}
-                    code = params.get('code')
-                    aud = self.aud_entry.get().strip()
-                    print("aud:", aud)
-                    parent.response_text.insert(tk.END, f"Received code: {code}\n")
-                    if parent.log_oidc_process.get():
-                        parent.oidc_log_text.insert(tk.END, f"Received authorization code: {code}\n")
-                    parent.exchange_code_for_tokens(code, aud)
-                    self.send_response(200)
-                    self.send_header('Content-type', 'text/html')
-                    self.end_headers()
-                    self.wfile.write(b"Authorization code received. You can close this window.")
-
-                else:
-                    self.send_error(404, "Not Found")
-
-            def do_POST(self):
-                if self.path == '/kill_server':
-                    threading.Thread(target=shutdown_https_server).start()
-                    self.send_response(200)
-                    self.send_header('Content-type', 'text/html')
-                    self.end_headers()
-                    self.wfile.write(b"Server shutdown initiated.")
-                if parent.log_oidc_process.get():
-                    parent.oidc_log_text.insert(tk.END, "Server shutdown initiated.\n")
-        return HTTPSHandler   
-
-
-
-
+    def schedule_ui_update(self, message, log=False):
+        self.master.after(0, self.write_to_response_text, message)
+        if log:
+            self.master.after(0, self.oidc_log_text.insert, tk.END, message)
+  
     def create_https_handler(self, aud):
         parent = self
         class HTTPSHandler(http.server.SimpleHTTPRequestHandler):
@@ -2547,8 +2514,6 @@ class OIDCDebugger:
                     parent.oidc_log_text.insert(tk.END, "Server shutdown initiated.\n")
         return HTTPSHandler  
   
-
-
     def exchange_code_for_tokens(self, code, aud):
         print(f"Exchange Code for Tokens: {code}")
         self.write_to_response_text( f"Exchange Code for Tokens: {code}\n")
