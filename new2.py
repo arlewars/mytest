@@ -2083,6 +2083,11 @@ class OIDCDebugger:
     def write_to_response_text(self, output):
         self.response_text.insert(tk.END, f"{output}\n")
 
+    def add_horizontal_rule(self):
+        self.write_to_response_text( f"---------------------------------------------------\n\n")
+        if self.log_oidc_process.get():
+            self.oidc_log_text.insert(tk.END, f"---------------------------------------------------\n\n")
+
     def open_oidc_log_window(self):
         if self.oidc_log_window is None or not self.oidc_log_window.winfo_exists():
             self.oidc_log_window = tk.Toplevel(self.window)
@@ -2113,6 +2118,16 @@ class OIDCDebugger:
             frame.grid_rowconfigure(0, weight=1)
             frame.grid_columnconfigure(0, weight=1)            
 
+    def resolve_server_name(self, server_name):
+        try:
+            socket.gethostbyname(server_name)
+            return True
+        except socket.error:
+            self.write_to_response_text(f"Server name '{server_name}' does not resolve. Using 127.0.0.1 instead.\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Server name '{server_name}' does not resolve. Using 127.0.0.1 instead.\n")
+            return False
+
     def fetch_well_known(self):
         if self.log_oidc_process.get():
             self.open_oidc_log_window()
@@ -2120,7 +2135,7 @@ class OIDCDebugger:
         well_known_url = self.well_known_entry.get().strip()
 
         if not well_known_url:
-            self.response_text.insert(tk.END, "Please enter a well-known endpoint URL.\n")
+            self.write_to_response_text( "Please enter a well-known endpoint URL.\n")
             return
 
         try:
@@ -2152,7 +2167,7 @@ class OIDCDebugger:
                 self.oidc_log_text.insert(tk.END, f"Well-known configuration response:\n{json.dumps(well_known_data, indent=4)}\n")
 
         if response.status_code != 200:
-                self.response_text.insert(tk.END, f"Error fetching well-known configuration: {response.status_code}\n")
+                self.write_to_response_text( f"Error fetching well-known configuration: {response.status_code}\n")
                 log_error("Unable to query Well-known Endpoint",f"{response.status_code}")
 
 
@@ -2188,7 +2203,7 @@ class OIDCDebugger:
 
         if not all([token_endpoint, client_id, client_secret, scopes]):
             self.response_text.delete(1.0, tk.END)
-            self.response_text.insert(tk.END, "Please fill in all fields to get tokens.")
+            self.write_to_response_text( "Please fill in all fields to get tokens.")
             return
 
         if aud:
@@ -2219,16 +2234,16 @@ class OIDCDebugger:
         response.raise_for_status()
         token_data = response.json()
         access_token = token_data.get('access_token')
-        self.response_text.insert(tk.END, f"Access Token:\n{access_token}\n\n")
-        self.response_text.insert(tk.END, f"Token Type:\n{token_data.get('token_type')}\n\n")
-        self.response_text.insert(tk.END, f"Expires In:\n{token_data.get('expires_in')}\n\n")
+        self.write_to_response_text( f"Access Token:\n{access_token}\n\n")
+        self.write_to_response_text( f"Token Type:\n{token_data.get('token_type')}\n\n")
+        self.write_to_response_text( f"Expires In:\n{token_data.get('expires_in')}\n\n")
 
         if access_token:
             try:
                 decoded_token = self.decode_jwt(access_token)
-                self.response_text.insert(tk.END, f"Decoded Access Token:\n{decoded_token}\n\n")
+                self.write_to_response_text( f"Decoded Access Token:\n{decoded_token}\n\n")
             except Exception as e:
-                self.response_text.insert(tk.END, f"Error retrieving OAuth tokens: {e}")
+                self.write_to_response_text( f"Error retrieving OAuth tokens: {e}")
                 log_error("Error retrieving OAuth token",e)
 
         if self.log_oidc_process.get():
@@ -2257,7 +2272,7 @@ class OIDCDebugger:
             server_name = "localhost"
         
         if not well_known_url or not client_id:
-            self.response_text.insert(tk.END, "Please enter the well-known endpoint and client credentials.\n")
+            self.write_to_response_text( "Please enter the well-known endpoint and client credentials.\n")
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, "Please enter the well-known endpoint and client credentials.\n")
             return
@@ -2275,7 +2290,7 @@ class OIDCDebugger:
             userinfo_endpoint = config.get("userinfo_endpoint")
 
             if not auth_endpoint or not token_endpoint:
-                self.response_text.insert(tk.END, "Error: Unable to find authorization or token endpoint in the configuration.\n")
+                self.write_to_response_text( "Error: Unable to find authorization or token endpoint in the configuration.\n")
                 log_error("Missing data in OIDC Well-Known Endpoint", "Error in configuration")
                 return
 
@@ -2318,7 +2333,7 @@ class OIDCDebugger:
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"Authorization URL: {auth_url}\n")
         except Exception as e:
-            self.response_text.insert(tk.END, f"Error generating auth request: {e}\n")
+            self.write_to_response_text( f"Error generating auth request: {e}\n")
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"Error generating auth request: {e}\n")
             log_error("Error create OIDC Auth Request", e)
@@ -2329,7 +2344,7 @@ class OIDCDebugger:
             # Start the HTTPS server after the certificate is created
             self.start_https_server()        
         except Exception as e:
-            self.response_text.insert(tk.END, "Web server failed.\n")
+            self.write_to_response_text( "Web server failed.\n")
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, "Web server failed.\n")
             log_error("Web server failed", e)
@@ -2352,17 +2367,17 @@ class OIDCDebugger:
     def submit_auth_request(self):
         auth_url = self.auth_url_text.get(1.0, tk.END).strip()
         if not auth_url:
-            self.response_text.insert(tk.END, "Please generate an authentication request URL first.\n")
+            self.write_to_response_text( "Please generate an authentication request URL first.\n")
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, "Authorization URL is empty. Generate the auth request first.\n")
       
             return
         webbrowser.open(auth_url)
-        self.response_text.insert(tk.END, "Please complete the authentication in your browser.\n")
+        self.write_to_response_text( "Please complete the authentication in your browser.\n")
         if self.log_oidc_process.get():
             self.oidc_log_text.insert(tk.END, f"Opened Authorization URL: {auth_url}\n")
 
-        self.response_text.insert(tk.END, f"Opened Authorization URL: {auth_url}\n")
+        self.write_to_response_text( f"Opened Authorization URL: {auth_url}\n")
 
 
     def generate_self_signed_cert(self):
@@ -2405,7 +2420,7 @@ class OIDCDebugger:
         cert_details += f"Not After: {cert.not_valid_after}\n"
 
        # self.response_text.delete(1.0, tk.END)
-        self.response_text.insert(tk.END, cert_details)
+        self.write_to_response_text( cert_details)
 
     def replace_certificate(self):
         cert_file_path = tk.filedialog.askopenfilename(title="Select Certificate File", filetypes=[("Certificate Files", "*.crt *.pem")])
@@ -2417,10 +2432,10 @@ class OIDCDebugger:
             with open(key_file_path, "r") as key_file:
                 self.key = crypto.load_privatekey(crypto.FILETYPE_PEM, key_file.read())
             self.response_text.delete(1.0, tk.END)
-            self.response_text.insert(tk.END, "Certificate and key replaced successfully.\n")
+            self.write_to_response_text( "Certificate and key replaced successfully.\n")
         else:
             self.response_text.delete(1.0, tk.END)
-            self.response_text.insert(tk.END, "Certificate or key file not selected.\n")
+            self.write_to_response_text( "Certificate or key file not selected.\n")
 
     def start_https_server(self):
         global https_server, https_server_thread
@@ -2428,19 +2443,12 @@ class OIDCDebugger:
         server_name = self.server_name_entry.get().strip()
         aud = self.aud_entry.get().strip()
 
-        if not server_name:
+        if not self.resolve_server_name(server_name):
             server_name = "localhost"
-        # Check if the server name resolves
-        try:
-            socket.gethostbyname(server_name)
-        except socket.error:
-            self.response_text.insert(tk.END, f"Server name '{server_name}' does not resolve. Using 127.0.0.1 instead.\n")
-            if self.log_oidc_process.get():
-                self.oidc_log_text.insert(tk.END, f"Server name '{server_name}' does not resolve. Using 127.0.0.1 instead.\n")
-            server_name = "localhost"
+
             
         if https_server is not None: 
-            self.response_text.insert(tk.END, "HTTPS server is already running.\n")
+            self.write_to_response_text( "HTTPS server is already running.\n")
             return
 
         https_server = http.server.HTTPServer((server_name, self.server_port), self.create_https_handler(aud))
@@ -2460,17 +2468,11 @@ class OIDCDebugger:
                 self.add_horizontal_rule()
 
         except Exception as e:
-            self.response_text.insert(tk.END, f"HTTPS server https://{server_name}:{self.server_port} Failed.\n")
+            self.write_to_response_text( f"HTTPS server https://{server_name}:{self.server_port} Failed.\n")
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"HTTPS server https://{server_name}:{self.server_port} Failed.: {e}\n")
                 self.add_horizontal_rule()
             log_error("HTTPS server Failed.", e)
-
-    def add_horizontal_rule(self):
-        self.response_text.insert(tk.END, f"---------------------------------------------------\n\n")
-        if self.log_oidc_process.get():
-            self.oidc_log_text.insert(tk.END, f"---------------------------------------------------\n\n")
-
     
     def create_https_handler(self):
         parent = self
@@ -2508,10 +2510,6 @@ class OIDCDebugger:
 
 
 
-    def add_horizontal_rule(self):
-            self.response_text.insert(tk.END, f"---------------------------------------------------\n\n")
-            if self.log_oidc_process.get():
-                self.oidc_log_text.insert(tk.END, f"---------------------------------------------------\n\n")
 
     def create_https_handler(self, aud):
         parent = self
@@ -2553,9 +2551,9 @@ class OIDCDebugger:
 
     def exchange_code_for_tokens(self, code, aud):
         print(f"Exchange Code for Tokens: {code}")
-        self.response_text.insert(tk.END, f"Exchange Code for Tokens: {code}\n")
+        self.write_to_response_text( f"Exchange Code for Tokens: {code}\n")
       #  if not self.is_exchange_code_for_tokens.get():
-      #      self.response_text.insert(tk.END, "Skipping Code Exchange, it is disabled.\n")
+      #      self.write_to_response_text( "Skipping Code Exchange, it is disabled.\n")
       #      return
     
         server_name = self.server_name_entry.get().strip()
@@ -2609,7 +2607,7 @@ class OIDCDebugger:
                 client_assertion = f"{encoded_header}.{encoded_payload}.{signature}"
                 data["client_assertion"] = client_assertion
                 data["client_assertion_type"] = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
-            self.response_text.insert(tk.END, f"Token Exchange Data: {data}\n")
+            self.write_to_response_text( f"Token Exchange Data: {data}\n")
 
             print(f"Token Exchange Data: {data}")
             print("sending request..")
@@ -2621,8 +2619,8 @@ class OIDCDebugger:
             try:
                 print(f"Token Endpoint: {self.token_endpoint}")
                 print(f"Data: {data}")
-                self.response_text.insert(tk.END, f"Token Endpoint: {self.token_endpoint}\n")
-                self.response_text.insert(tk.END, f"Data: {data}\n")
+                self.write_to_response_text( f"Token Endpoint: {self.token_endpoint}\n")
+                self.write_to_response_text( f"Data: {data}\n")
 
                 response = requests.post(self.token_endpoint, data=data, headers=headers, verify=self.ssl_context)
             except Exception as ssl_error:
@@ -2630,7 +2628,7 @@ class OIDCDebugger:
             #response = requests.post(self.token_endpoint, data=data, headers=headers, verify=False)
             
             if response.status_code != 200:
-                self.response_text.insert(tk.END, f"Error fetching tokens: {response.status_code}\n")
+                self.write_to_response_text( f"Error fetching tokens: {response.status_code}\n")
                 if self.log_oidc_process.get():
                     self.oidc_log_text.insert(tk.END, f"Error fetching tokens: {response.status_code}\n")
                     self.add_horizontal_rule()
@@ -2639,6 +2637,8 @@ class OIDCDebugger:
 
             if response.status_code == 200:
                 tokens = response.json()
+                self.write_to_response_text( f"Token Exchange Response: {tokens}\n")
+                self.add_horizontal_rule()
                 print(f"Token Exchange Response: {tokens}")
                 self.display_tokens(tokens)
                 if self.log_oidc_process.get():
@@ -2647,7 +2647,7 @@ class OIDCDebugger:
 
             
         except Exception as e:
-            self.response_text.insert(tk.END, f"Error exchanging code for tokens: {e}\n")
+            self.write_to_response_text( f"Error exchanging code for tokens: {e}\n")
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"Error exchanging code for tokens: {e}\n")
                 self.add_horizontal_rule()
@@ -2656,41 +2656,40 @@ class OIDCDebugger:
 
     def stop_https_server(self): 
         shutdown_https_server() 
-        self.response_text.insert(tk.END, "HTTPS server stopped.\n")
+        self.write_to_response_text( "HTTPS server stopped.\n")
 
 
     def display_tokens(self, tokens):
         print(f"Display Tokens: {tokens}")
-        self.response_text.insert(tk.END, f"Display Tokens:\n")
+        self.write_to_response_text( f"Display Tokens:\n")
         try:
             # Ensure response_text is a valid Text widget
             if not isinstance(self.response_text, tk.Text):
                 raise TypeError("self.response_text is not a tk.Text widget")
 
-            self.response_text.insert(tk.END, f"Display Tokens:\n")
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, "Display Tokens:\n")
                 self.add_horizontal_rule()
 
             for key, value in tokens.items():
-                self.response_text.insert(tk.END, f"{key}: {value}\n")
+                self.write_to_response_text( f"{key}: {value}\n")
                 if self.log_oidc_process.get():
                     self.oidc_log_text.insert(tk.END, f"{key}: {value}\n")
                     self.add_horizontal_rule()
 
             if "id_token" in tokens:
                 self.decode_jwt(tokens["id_token"])
-                self.response_text.insert(tk.END, f"ID Token: {tokens['id_token']}\n")
+                self.write_to_response_text( f"ID Token: {tokens['id_token']}\n")
             if "access_token" in tokens:
                 self.userinfo_query(tokens["access_token"], "access")
             if "access_token" in tokens:
                 self.introspect_token(tokens["access_token"], "access")                
             if "refresh_token" in tokens:
                 self.introspect_token(tokens["refresh_token"], "refresh")
-                self.response_text.insert(tk.END, f"Refresh Token: {tokens['refresh_token']}\n")
+                self.write_to_response_text( f"Refresh Token: {tokens['refresh_token']}\n")
             
         except Exception as e:
-            self.response_text.insert(tk.END, f"Error displaying tokens: {e}\n")
+            self.write_to_response_text( f"Error displaying tokens: {e}\n")
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"Error displaying tokens: {e}\n")
                 self.add_horizontal_rule()
@@ -2707,13 +2706,13 @@ class OIDCDebugger:
                 "payload": json.loads(payload_decoded),
                 "signature": signature
             }
-            self.response_text.insert(tk.END, f"Decoded ID Token: {json.dumps(decoded, indent=4)}\n")
+            self.write_to_response_text( f"Decoded ID Token: {json.dumps(decoded, indent=4)}\n")
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"Decoded ID Token: {json.dumps(decoded, indent=4)}\n")
                 self.add_horizontal_rule()
 
         except Exception as e:
-            self.response_text.insert(tk.END, f"Error decoding JWT: {e}\n")
+            self.write_to_response_text( f"Error decoding JWT: {e}\n")
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"Error decoding JWT: {e}\n")
                 self.add_horizontal_rule()
@@ -2721,7 +2720,7 @@ class OIDCDebugger:
 
     def userinfo_query(self, token, token_type):
         #if not self.is_userinfo_query.get():
-         #       self.response_text.insert(tk.END, "Skipping Userinfo Query, it is disabled.\n")
+         #       self.write_to_response_text( "Skipping Userinfo Query, it is disabled.\n")
           #      return
         print(f"Userinfo Query: {token_type} is {token}")
         try:
@@ -2736,7 +2735,7 @@ class OIDCDebugger:
             #response = requests.get(f"{self.userinfo_endpoint}", headers=headers, verify=False)
            
             if response.status_code != 200:
-                self.response_text.insert(tk.END, f"Error userinfo {token_type} token: {response.status_code}\n")
+                self.write_to_response_text( f"Error userinfo {token_type} token: {response.status_code}\n")
                 if self.log_oidc_process.get():
                     self.oidc_log_text.insert(tk.END, f"Error userinfo {token_type} token: {response.status_code}\n")
                     self.add_horizontal_rule()
@@ -2744,15 +2743,15 @@ class OIDCDebugger:
                 return
 
             userinfo = response.json()
-            self.response_text.insert(tk.END, f"UserInfo {token_type.capitalize()} Token: {json.dumps(userinfo, indent=4)}\n")
+            self.write_to_response_text( f"UserInfo {token_type.capitalize()} Token: {json.dumps(userinfo, indent=4)}\n")
 
             print(f"Userinfo Query Response: {userinfo}")
-            self.response_text.insert(tk.END, f"UserInfo {token_type.capitalize()} Token: {json.dumps(userinfo, indent=4)}\n")
+            self.write_to_response_text( f"UserInfo {token_type.capitalize()} Token: {json.dumps(userinfo, indent=4)}\n")
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"UserInfo {token_type.capitalize()} Token: {json.dumps(userinfo, indent=4)}\n")
                 self.add_horizontal_rule()
         except Exception as e:
-            self.response_text.insert(tk.END, f"Error calling UserInfo: {e}\n")
+            self.write_to_response_text( f"Error calling UserInfo: {e}\n")
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"Error calling UserInfo: {e}\n")
                 self.add_horizontal_rule()
@@ -2802,19 +2801,19 @@ class OIDCDebugger:
             #response = requests.post(self.introspect_endpoint, data=data, headers=headers, verify=False)
 
             if response.status_code != 200:
-                self.response_text.insert(tk.END, f"Error introspecting {token_type} token: {response.status_code}\n")
+                self.write_to_response_text( f"Error introspecting {token_type} token: {response.status_code}\n")
                 if self.log_oidc_process.get():
                     self.oidc_log_text.insert(tk.END, f"Error introspecting {token_type} token: {response.status_code}\n")
                     self.add_horizontal_rule()
                 return
 
             introspection = response.json()
-            self.response_text.insert(tk.END, f"Introspected {token_type.capitalize()} Token: {json.dumps(introspection, indent=4)}\n")
+            self.write_to_response_text( f"Introspected {token_type.capitalize()} Token: {json.dumps(introspection, indent=4)}\n")
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"Introspected {token_type.capitalize()} Token: {json.dumps(introspection, indent=4)}\n")
                 self.add_horizontal_rule()
         except Exception as e:
-            self.response_text.insert(tk.END, f"Error introspecting {token_type} token: {e}\n")
+            self.write_to_response_text( f"Error introspecting {token_type} token: {e}\n")
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"Error introspecting {token_type} token: {e}\n")
                 self.add_horizontal_rule()
