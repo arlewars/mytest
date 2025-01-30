@@ -2430,76 +2430,88 @@ class OIDCDebugger:
             self.response_text.delete(1.0, tk.END)
             self.response_text.insert(tk.END, "Certificate or key file not selected.\n")
 
-    def start_https_server(self, aud):
-        global https_server, https_server_thread
+    def start_https_server(self):
+            global https_server, https_server_thread
 
-        print("Debug: Entered start_https_server method")
+            server_name = self.server_name_entry.get().strip()
+            if not server_name:
+                server_name = "localhost"
+            # Check if the server name resolves
+            try:
+                socket.gethostbyname(server_name)
+            except socket.error:
+                self.response_text.insert(tk.END, f"Server name '{server_name}' does not resolve. Using 127.0.0.1 instead.\n")
+                if self.log_oidc_process.get():
+                    self.oidc_log_text.insert(tk.END, f"Server name '{server_name}' does not resolve. Using 127.0.0.1 instead.\n")
+                server_name = "localhost"
+                
+            if https_server is not None: 
+                self.response_text.insert(tk.END, "HTTPS server is already running.\n")
+                return
 
-        if not self.start_is_https_server.get():
-            self.response_text.insert(tk.END, "HTTPS server start is disabled.\n")
-            print("Debug: HTTPS server start is disabled")
-            return
+            handler = self.create_https_handler()
+            https_server = socketserver.TCPServer((server_name, self.server_port), handler)
 
-        server_name = self.server_name_entry.get().strip()
-        if not server_name:
-            server_name = "localhost"
-        print(f"Debug: Server name is '{server_name}'")
-
-        # Check if the server name resolves
-        try:
-            socket.gethostbyname(server_name)
-            print(f"Debug: Server name '{server_name}' resolves successfully")
-        except socket.error:
-            self.response_text.insert(tk.END, f"Server name '{server_name}' does not resolve. Using 127.0.0.1 instead.\n")
-            print(f"Debug: Server name '{server_name}' does not resolve. Using 127.0.0.1 instead")
-            if self.log_oidc_process.get():
-                self.oidc_log_text.insert(tk.END, f"Server name '{server_name}' does not resolve. Using 127.0.0.1 instead.\n")
-            server_name = "localhost"
-
-        print(f"Starting HTTPS server on https://{server_name}:{self.server_port}/callback")
-
-        if https_server is not None: 
-            self.response_text.insert(tk.END, "HTTPS server is already running.\n")
-            print("Debug: HTTPS server is already running")
-            return
-
-        try:
-            handler = self.create_https_handler(aud)
-            https_server = socketserver.TCPServer((server_name, self.server_port), lambda *args, **kwargs: handler(*args, parent=self, **kwargs))
-            print("Debug: HTTPS server handler created successfully")
-        except Exception as e:
-            self.response_text.insert(tk.END, f"Failed to create HTTPS server handler: {e}\n")
-            print(f"Debug: Failed to create HTTPS server handler: {e}")
-            return
-
-        try:
             context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
             context.load_cert_chain(certfile='server.crt', keyfile='server.key')
             https_server.socket = context.wrap_socket(https_server.socket, server_side=True)
-            print("Debug: SSL context created and certificate loaded successfully")
-        except Exception as e:
-            self.response_text.insert(tk.END, f"Failed to create SSL context or load certificate: {e}\n")
-            print(f"Debug: Failed to create SSL context or load certificate: {e}")
-            return
 
-        https_server_thread = threading.Thread(target=https_server.serve_forever)
-        https_server_thread.daemon = True
-        try:
-            https_server_thread.start()
-            self.response_text.insert(tk.END, f"HTTPS server started on https://{server_name}:{self.server_port}/callback\n\n")
-            self.response_text.insert(tk.END, f"Please confirm {self.client_id} has the redirect uri:  https://{server_name}:{self.server_port}/callback\n")
-            print(f"Debug: HTTPS server started on https://{server_name}:{self.server_port}/callback")
-            if self.log_oidc_process.get():
-                self.oidc_log_text.insert(tk.END, f"HTTPS server started on https://{server_name}:{self.server_port}/callback\n\n")
-                self.oidc_log_text.insert(tk.END, f"Please confirm {self.client_id} has the redirect uri:  https://{server_name}:{self.server_port}/callback\n")
-                self.add_horizontal_rule()
-        except Exception as e:
-            self.response_text.insert(tk.END, f"HTTPS server https://{server_name}:{self.server_port} Failed.\n")
-            print(f"Debug: HTTPS server https://{server_name}:{self.server_port} Failed: {e}")
-            if self.log_oidc_process.get():
-                self.oidc_log_text.insert(tk.END, f"HTTPS server https://{server_name}:{self.server_port} Failed.: {e}\n")
-                self.add_horizontal_rule()
-            log_error("HTTPS server Failed.", e)
+            https_server_thread = threading.Thread(target=https_server.serve_forever)
+            https_server_thread.daemon = True
+            try:
+                https_server_thread.start()
+                self.response_text.insert(tk.END, f"HTTPS server started on https://{server_name}:{self.server_port}/callback\n\n")
+                self.response_text.insert(tk.END, f"Please confirm {self.client_id} has the redirect uri:  https://{server_name}:{self.server_port}/callback\n")
+                if self.log_oidc_process.get():
+                    self.oidc_log_text.insert(tk.END, f"HTTPS server started on https://{server_name}:{self.server_port}/callback\n\n")
+                    self.oidc_log_text.insert(tk.END, f"Please confirm {self.client_id} has the redirect uri:  https://{server_name}:{self.server_port}/callback\n")
+                    self.add_horizontal_rule()
+
+            except Exception as e:
+                self.response_text.insert(tk.END, f"HTTPS server https://{server_name}:{self.server_port} Failed.\n")
+                if self.log_oidc_process.get():
+                    self.oidc_log_text.insert(tk.END, f"HTTPS server https://{server_name}:{self.server_port} Failed.: {e}\n")
+                    self.add_horizontal_rule()
+                log_error("HTTPS server Failed.", e)
+    
+    def add_horizontal_rule(self):
+        self.response_text.insert(tk.END, f"---------------------------------------------------\n\n")
+        if self.log_oidc_process.get():
+            self.oidc_log_text.insert(tk.END, f"---------------------------------------------------\n\n")
+
+    
+    def create_https_handler(self):
+        parent = self
+
+        class HTTPSHandler(http.server.SimpleHTTPRequestHandler):
+            def do_GET(self):
+                if self.path.startswith('/callback'):
+                    query = self.path.split('?')[-1]
+                    params = {k: v for k, v in (item.split('=') for item in query.split('&'))}
+                    code = params.get('code')
+                    parent.response_text.insert(tk.END, f"Received code: {code}\n")
+                    if parent.log_oidc_process.get():
+                        parent.oidc_log_text.insert(tk.END, f"Received authorization code: {code}\n")
+                    parent.exchange_code_for_tokens(code)
+                    self.send_response(200)
+                    self.send_header('Content-type', 'text/html')
+                    self.end_headers()
+                    self.wfile.write(b"Authorization code received. You can close this window.")
+
+                else:
+                    self.send_error(404, "Not Found")
+
+            def do_POST(self):
+                if self.path == '/kill_server':
+                    threading.Thread(target=shutdown_https_server).start()
+                    self.send_response(200)
+                    self.send_header('Content-type', 'text/html')
+                    self.end_headers()
+                    self.wfile.write(b"Server shutdown initiated.")
+                if parent.log_oidc_process.get():
+                    parent.oidc_log_text.insert(tk.END, "Server shutdown initiated.\n")
+        return HTTPSHandler   
+
 
 
     def add_horizontal_rule(self):
