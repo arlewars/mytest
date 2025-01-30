@@ -2500,16 +2500,15 @@ class OIDCDebugger:
                 self.oidc_log_text.insert(tk.END, f"HTTPS server https://{server_name}:{self.server_port} Failed.: {e}\n")
                 self.add_horizontal_rule()
             log_error("HTTPS server Failed.", e)
-    
+
 
     def add_horizontal_rule(self):
             self.response_text.insert(tk.END, f"---------------------------------------------------\n\n")
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"---------------------------------------------------\n\n")
 
-
-    
     def create_https_handler(self, aud):
+        parent = self
         class HTTPSHandler(http.server.SimpleHTTPRequestHandler):
             def __init__(self, *args, **kwargs):
                 self.parent = parent
@@ -2541,7 +2540,8 @@ class OIDCDebugger:
                     self.wfile.write(b"Server shutdown initiated.")
                 if parent.log_oidc_process.get():
                     parent.oidc_log_text.insert(tk.END, "Server shutdown initiated.\n")
-        return HTTPSHandler    
+        return HTTPSHandler  
+  
 
 
     def exchange_code_for_tokens(self, code, aud):
