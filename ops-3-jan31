@@ -1401,63 +1401,75 @@ class OIDCDebugger:
         self.frame = ttk.Frame(self.window, padding="10")
         self.frame.pack(fill=tk.BOTH, expand=True)
 
-        # Labels and entries
         self.endpoint_label = ttk.Label(self.frame, text="Select or enter well-known endpoint URL:")
         self.endpoint_label.grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        self.endpoint_entry = ttk.Entry(self.frame, width=50)
-        self.endpoint_entry.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
-        
-        self.server_name_label = ttk.Label(self.frame, text="Enter server name for redirect URL(optional):")
-        self.server_name_label.grid(row=1, column=0, padx=5, pady=5, sticky="w")
-        self.server_name_entry = ttk.Entry(self.frame, width=50)
-        self.server_name_entry.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
-        
-        self.client_id_label = ttk.Label(self.frame, text="Client ID:")
-        self.client_id_label.grid(row=2, column=0, padx=5, pady=5, sticky="w")
-        self.client_id_entry = ttk.Entry(self.frame, width=50)
-        self.client_id_entry.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
-        
-        self.client_secret_label = ttk.Label(self.frame, text="Client Secret:")
-        self.client_secret_label.grid(row=3, column=0, padx=5, pady=5, sticky="w")
-        self.client_secret_entry = ttk.Entry(self.frame, width=50, show="*")
-        self.client_secret_entry.grid(row=3, column=1, padx=5, pady=5, sticky="ew")
-        
-        self.scope_label = ttk.Label(self.frame, text="Enter Scopes (e.g., openid profile email):")
-        self.scope_label.grid(row=4, column=0, padx=5, pady=5, sticky="w")
-        self.scope_entry = ttk.Entry(self.frame, width=50)
-        self.scope_entry.grid(row=4, column=1, padx=5, pady=5, sticky="ew")
 
-        self.aud_label = ttk.Label(self.frame, text="Audience (aud):")
-        self.aud_label.grid(row=5, column=0, padx=5, pady=5, sticky="w")
-        self.aud_entry = ttk.Entry(self.frame, width=50)
-        self.aud_entry.grid(row=5, column=1, padx=5, pady=5, sticky="ew")
+        self.well_known_var = tk.StringVar()
+        self.well_known_dropdown = ttk.Combobox(self.frame, textvariable=self.well_known_var)
+
+        self.well_known_dropdown['values'] = [
+            'https://sso.cfi.prod.aws.southwest.com/.well-known/openid-configuration'
+            'https://sso.fed.dev.aws.swacorp.com/.well-known/openid-configuration',
+            'https://sso.fed.dev.aws.swalife.com/.well-known/openid-configuration',
+            'https://sso.fed.prod.aws.swacorp.com/.well-known/openid-configuration',
+            'https://sso.fed.prod.aws.swalife.com/.well-known/openid-configuration',
+            'https://sso.fed.qa.aws.swacorp.com/.well-known/openid-configuration',
+            'https://sso.fed.qa.aws.swalife.com/.well-known/openid-configuration'
+        ]
+        self.well_known_dropdown.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
+
+        # Bind the selection event to a function
+        self.well_known_dropdown.bind("<<ComboboxSelected>>", self.update_endpoint_entry)
+
+        self.endpoint_entry = ttk.Entry(self.frame, width=50)
+        self.endpoint_entry.grid(row=2, column=0, padx=5, pady=5)
+        self.endpoint_entry.insert(0, "Enter well-known endpoint URL")
+
+        self.server_name_label = ttk.Label(self.frame, text="Enter server name for redirect URL(optional):")
+        self.server_name_label.grid(row=3, column=0, padx=5, pady=5, sticky="w")
+
+        self.server_name_entry = ttk.Entry(self.frame, width=50)
+        self.server_name_entry.grid(row=4, column=0, padx=5, pady=5)
+        self.server_name_entry.insert(0, "localhost")
+
+        self.client_id_entry = ttk.Entry(self.frame, width=50)
+        self.client_id_entry.grid(row=5, column=0, padx=5, pady=5)
+        self.client_id_entry.insert(0, "Enter Client ID")
+
+        self.client_secret_entry = ttk.Entry(self.frame, width=50, show="*")
+        self.client_secret_entry.grid(row=6, column=0, padx=5, pady=5)
+        self.client_secret_entry.insert(0, "Enter Client Secret")
+
+        self.scope_entry = ttk.Entry(self.frame, width=50)
+        self.scope_entry.grid(row=7, column=0, padx=5, pady=5)
+        self.scope_entry.insert(0, "Enter Scopes (e.g., openid profile email)")
 
         self.use_pkce = tk.BooleanVar()
-        ttk.Checkbutton(self.frame, text="Use PKCE", variable=self.use_pkce).grid(row=6, column=1, padx=5, pady=5, sticky="w")
+        ttk.Checkbutton(self.frame, text="Use PKCE", variable=self.use_pkce).grid(row=8, column=0, padx=5, pady=5)
 
         self.auth_method = tk.StringVar(value="client_secret_post")
-        ttk.Radiobutton(self.frame, text="Client Secret Post", variable=self.auth_method, value="client_secret_post").grid(row=7, column=1, padx=1, pady=1, sticky="w")
-        ttk.Radiobutton(self.frame, text="Client Secret Basic", variable=self.auth_method, value="client_secret_basic").grid(row=8, column=1, padx=1, pady=1, sticky="w")
+        ttk.Radiobutton(self.frame, text="Client Secret Post", variable=self.auth_method, value="client_secret_post").grid(row=0, column=1, padx=1, pady=1, sticky="w")
+        ttk.Radiobutton(self.frame, text="Client Secret Basic", variable=self.auth_method, value="client_secret_basic").grid(row=1, column=1, padx=1, pady=1, sticky="w")
 
         self.generate_request_btn = ttk.Button(self.frame, text="Generate Auth Request", command=self.generate_auth_request)
-        self.generate_request_btn.grid(row=9, column=1, padx=5, pady=5, sticky="w")
+        self.generate_request_btn.grid(row=9, column=0, padx=5, pady=5)
 
         self.auth_url_text = tk.Text(self.frame, height=5, width=80)
-        self.auth_url_text.grid(row=10, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
+        self.auth_url_text.grid(row=10, column=0, padx=5, pady=5, sticky="ew")
         auth_url_scrollbar = ttk.Scrollbar(self.frame, orient="vertical", command=self.auth_url_text.yview)
         self.auth_url_text.configure(yscrollcommand=auth_url_scrollbar.set)
-        auth_url_scrollbar.grid(row=10, column=2, sticky="ns")
+        auth_url_scrollbar.grid(row=10, column=1, sticky="ns")
 
         self.submit_btn = ttk.Button(self.frame, text="Submit Auth Request", command=self.submit_auth_request)
-        self.submit_btn.grid(row=11, column=1, padx=5, pady=5, sticky="w")
+        self.submit_btn.grid(row=11, column=0, padx=5, pady=5)
 
         self.clear_text_checkbox = tk.BooleanVar()
-        ttk.Checkbutton(self.frame, text="Clear response text\n before next request", variable=self.clear_text_checkbox).grid(row=12, column=1, padx=5, pady=5, sticky="w")
+        ttk.Checkbutton(self.frame, text="Clear response text\n before next request", variable=self.clear_text_checkbox).grid(row=12, column=0, padx=5, pady=5, sticky="w")
         self.log_oidc_process = tk.BooleanVar()
-        ttk.Checkbutton(self.frame, text="Log OIDC process\n in separate window", variable=self.log_oidc_process).grid(row=13, column=1, padx=5, pady=5, sticky="w")
+        ttk.Checkbutton(self.frame, text="Log OIDC process\n in separate window", variable=self.log_oidc_process).grid(row=12, column=1, padx=5, pady=5, sticky="w")
         
         self.response_table_frame = ttk.Frame(self.frame)
-        self.response_table_frame.grid(row=0, column=3, rowspan=9, padx=5, pady=5, sticky="nsew")
+        self.response_table_frame.grid(row=0, column=2, rowspan=9, padx=5, pady=5, sticky="nsew")
 
         table_scrollbar_y = ttk.Scrollbar(self.response_table_frame, orient="vertical")
         table_scrollbar_x = ttk.Scrollbar(self.response_table_frame, orient="horizontal")
@@ -1478,16 +1490,16 @@ class OIDCDebugger:
         table_scrollbar_x.grid(row=1, column=1, sticky="ew")
 
         self.response_text = tk.Text(self.frame, height=30, width=100)
-        self.response_text.grid(row=14, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
+        self.response_text.grid(row=13, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
         response_text_scrollbar = ttk.Scrollbar(self.frame, orient="vertical", command=self.response_text.yview)
         self.response_text.configure(yscrollcommand=response_text_scrollbar.set)
-        response_text_scrollbar.grid(row=14, column=2, sticky="ns")
+        response_text_scrollbar.grid(row=13, column=2, sticky="ns")
 
         self.certificate_btn = ttk.Button(self.frame, text="Show Certificate", command=self.show_certificate)
-        self.certificate_btn.grid(row=15, column=1, padx=5, pady=5, sticky="w")
+        self.certificate_btn.grid(row=14, column=0, padx=5, pady=5)
 
         self.replace_certificate_btn = ttk.Button(self.frame, text="Replace Certificate", command=self.replace_certificate)
-        self.replace_certificate_btn.grid(row=16, column=1, padx=5, pady=5, sticky="w")
+        self.replace_certificate_btn.grid(row=15, column=0, padx=5, pady=5)
 
         self.oidc_log_window = None
         #Draw the screen and start network operations after UI is fully rendered 
@@ -1563,7 +1575,6 @@ class OIDCDebugger:
         client_secret = self.client_secret_entry.get().strip()
         scopes = self.scope_entry.get().strip()
         server_name = self.server_name_entry.get().strip()
-        aud = self.aud_entry.get().strip()
         if not server_name:
             server_name = "localhost"
 
@@ -1609,8 +1620,7 @@ class OIDCDebugger:
                 "response_type": "code",
                 "scope": scopes,
                 "state": state,
-                "nonce": nonce,
-                "aud": aud  # Add audience to the request parameters
+                "nonce": nonce
             }
 
             if self.use_pkce.get():
@@ -1926,10 +1936,6 @@ class OIDCDebugger:
                 self.introspect_token(tokens["access_token"], "access")
             if "refresh_token" in tokens:
                 self.introspect_token(tokens["refresh_token"], "refresh")
-            if "aud" in tokens:
-                self.response_text.insert(tk.END, f"Audience (aud): {tokens['aud']}\n")
-                if self.log_oidc_process.get():
-                    self.oidc_log_text.insert(tk.END, f"Audience (aud): {tokens['aud']}\n")
         except Exception as e:
             self.response_text.insert(tk.END, f"Error displaying tokens: {e}\n")
             if self.log_oidc_process.get():
@@ -2275,7 +2281,7 @@ class NSLookup:
         table = ttk.Treeview(frame, columns=("Domain", "Name", "IP Address", "Last IP Change", "Hanger", "Timestamp"), show="headings")
         for col in ("Domain", "Name", "IP Address", "Last IP Change", "Hanger", "Timestamp"):
             table.heading(col, text=col)
-            table.column(col, width=100, anchor="center")
+            table.column(col, anchor=tk.W, width=150)
         table.grid(row=2, column=0, columnspan=6, padx=5, pady=5, sticky="nsew")
 
         scrollbar_y = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=table.yview)
@@ -2545,7 +2551,7 @@ class HTTPRequest:
         table = ttk.Treeview(frame, columns=("URL", "Regex Pattern", "Port", "Use SSL", "Status Code", "Status Text", "SSL Match", "Response Time", "Timestamp"), show="headings")
         for col in ("URL", "Regex Pattern", "Port", "Use SSL", "Status Code", "Status Text", "SSL Match", "Response Time", "Timestamp"):
             table.heading(col, text=col)
-            table.column(col, width=100, anchor="center")
+            table.column(col, anchor=tk.W, width=150)
         table.grid(row=2, column=0, columnspan=8, padx=5, pady=5, sticky="nsew")
 
         scrollbar_y = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=table.yview)
@@ -2872,7 +2878,7 @@ class JWKSCheck:
         self.cert_scrollbar_y.grid(row=2, column=4, sticky='ns')
 
         self.cert_scrollbar_x = ttk.Scrollbar(self.frame, orient=tk.HORIZONTAL, command=self.cert_table.xview)
-        self.cert_table.configure(yscroll=self.cert_scrollbar_x.set)
+        self.cert_table.configure(xscroll=self.cert_scrollbar_x.set)
         self.cert_scrollbar_x.grid(row=3, column=0, columnspan=4, sticky='ew')
 
         self.ec_table = self.setup_table(self.frame, ("Key Type", "Key ID", "Use", "X", "Y", "Curve"))
@@ -2883,7 +2889,7 @@ class JWKSCheck:
         self.ec_scrollbar_y.grid(row=4, column=4, sticky='ns')
 
         self.ec_scrollbar_x = ttk.Scrollbar(self.frame, orient=tk.HORIZONTAL, command=self.ec_table.xview)
-        self.ec_table.configure(yscroll=self.ec_scrollbar_x.set)
+        self.ec_table.configure(xscroll=self.ec_scrollbar_x.set)
         self.ec_scrollbar_x.grid(row=5, column=0, columnspan=4, sticky='ew')
 
         self.frame.rowconfigure(2, weight=1)
@@ -3592,14 +3598,13 @@ def main():
     ttk.Button(sidebar, text="PingFederate OAuth Client Tool", command=lambda: open_pingfederate_client_app(theme_var.get())).grid(row=13, column=0, padx=5, pady=2)
     ttk.Button(sidebar, text="ActiveDirectoryDebugger", command=lambda: ActiveDirectoryDebugger(theme_var.get())).grid(row=14, column=0, padx=5, pady=2)
 
-    # Add frames for HTTPRequest and NSLookup
-    http_request_frame = ttk.Frame(scrollable_frame, padding="5")
-    http_request_frame.grid(row=0, column=0, sticky="nsew")
-    HTTPRequest(http_request_frame, theme_var.get())
+   # ttk.Button(sidebar, text="Create Custom Hosts File", command=lambda: open_hosts_file_window(theme_var.get())).grid(row=13, column=0, padx=5, pady=2)
 
-    nslookup_frame = ttk.Frame(scrollable_frame, padding="5")
-    nslookup_frame.grid(row=1, column=0, sticky="nsew")
-    NSLookup(nslookup_frame, theme_var.get())
+    #ttk.Label(sidebar, text="CA Path:", style="TLabel").grid(row=14, column=0, padx=5, pady=5)
+    #ca_path_var = tk.StringVar(value=CA_path)
+    #ca_path_entry = ttk.Entry(sidebar, textvariable=ca_path_var, width=30, style="TEntry")
+    #ca_path_entry.grid(row=15, column=0, padx=5, pady=5)
+    #ttk.Button(sidebar, text="Update CA Path", command=lambda: update_ca_path(ca_path_var.get()), style="TButton").grid(row=16, column=0, padx=5, pady=5)
 
     for widget in scrollable_frame.winfo_children():
         widget.grid_configure(sticky="nsew")
