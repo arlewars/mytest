@@ -478,6 +478,28 @@ def open_pingfederate_client_app(theme):
     pfclientapp_window = CustomWindow("PingFederate Client App", 1000, 600, theme)
     PingFederateClientApp(pfclientapp_window.frame, theme)
 
+def create_well_known_dropdown(frame, well_known_entry):
+    well_known_var = tk.StringVar()
+    well_known_dropdown = ttk.Combobox(frame, textvariable=well_known_var)
+    well_known_dropdown['values'] = [
+        'https://localhost:9031/.well-known/openid-configuration',
+        'https://sso.cfi.prod.aws.southwest.com/.well-known/openid-configuration',
+        'https://sso.fed.dev.aws.swacorp.com/.well-known/openid-configuration',
+        'https://sso.fed.dev.aws.swalife.com/.well-known/openid-configuration',
+        'https://sso.fed.prod.aws.swacorp.com/.well-known/openid-configuration',
+        'https://sso.fed.prod.aws.swalife.com/.well-known/openid-configuration',
+        'https://sso.fed.qa.aws.swacorp.com/.well-known/openid-configuration',
+        'https://sso.fed.qa.aws.swalife.com/.well-known/openid-configuration'
+    ]
+    well_known_dropdown.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
+
+    def on_select(event):
+        well_known_entry.delete(0, tk.END)
+        well_known_entry.insert(0, well_known_var.get())
+
+    well_known_dropdown.bind("<<ComboboxSelected>>", on_select)
+    return well_known_dropdown
+
 def open_hosts_file_window(theme):
     class CustomWindow(tk.Toplevel):
         def __init__(self, title, width, height, theme, *args, **kwargs):
