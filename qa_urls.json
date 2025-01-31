@@ -1,0 +1,1 @@
+[{"url": "sso.fed.qa.aws.swalife.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": true}, {"url": "sso.fed.qa.aws.swacorp.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": true}]

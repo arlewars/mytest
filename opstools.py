@@ -2471,6 +2471,562 @@ class HTTPRequest:
         self.update_http_table("qa")
         self.update_http_table("development")
 
+    def apply_theme(self, theme, env):
+        style = ttk.Style()
+        style.theme_use("clam")
+        colors = NORD_STYLES[theme]
+
+        background_color = colors["background"]
+        style.configure("TFrame", background=background_color)
+        style.configure("TLabelFrame", background=background_color, foreground=colors["foreground"])
+        style.configure("Treeview", background=background_color, foreground=colors["foreground"], fieldbackground=background_color)
+        style.configure("Treeview.Heading", background=colors["header"], foreground=colors["foreground"])
+        style.configure("TButton", background=colors["button"], foreground=colors["foreground"])
+        style.map("TButton", background=[("active", colors["highlight"])])
+        style.configure("TEntry", background=background_color, foreground=colors["foreground"], fieldbackground=background_color)
+        style.configure("TText", background=background_color, foreground=colors["foreground"])
+        style.configure("Invert.TButton", background=colors["invert_button"], foreground=colors["foreground"])
+        style.map("Invert.TButton", background=[("active", colors["highlight"])])
+        style.configure("TButton", background=colors["button_background"], foreground=colors["foreground"])
+        style.configure("TLabel", background=colors["button_background"], foreground=colors["foreground"])
+        style.configure("TEntry", fieldbackground=colors["button_background"], foreground=colors["foreground"])
+
+    def setup_ui(self):
+        self.notebook = ttk.Notebook(self.master)
+        self.notebook.grid(row=2, column=0, sticky="nsew")
+
+        self.frames = {}
+        for env in ["production", "qa", "development"]:
+            frame = ttk.Frame(self.notebook)
+            self.notebook.add(frame, text=env.capitalize())
+            self.frames[env] = frame
+
+            self.setup_table_ui(frame, env)
+            self.apply_theme(self.style, env)
+
+        self.master.rowconfigure(2, weight=1)
+        self.master.columnconfigure(0, weight=1)
+
+    def setup_table_ui(self, frame, env):
+        table_title_frame = ttk.Frame(frame)
+        table_title_frame.grid(row=0, column=0, columnspan=7, sticky="ew")
+        ttk.Label(table_title_frame, text=f"{env.capitalize()} HTTPRequest").pack(side=tk.LEFT)
+
+        ttk.Label(table_title_frame, text="Refresh Time (s):").pack(side=tk.RIGHT, padx=5)
+        refresh_time_entry = ttk.Entry(table_title_frame, width=10)
+        refresh_time_entry.pack(side=tk.RIGHT, padx=5)
+        refresh_time_entry.insert(0, "600")  # Default to 10 minutes
+
+        url_entry = ttk.Entry(frame, width=50)
+        url_entry.grid(row=1, column=0, padx=2, pady=2, sticky="ew")
+        url_entry.insert(0, "Enter URL")
+
+        regex_entry = ttk.Entry(frame, width=15)
+        regex_entry.grid(row=1, column=1, padx=2, pady=2, sticky="ew")
+        regex_entry.insert(0, "Enter regex")
+
+        port_entry = ttk.Entry(frame, width=5)
+        port_entry.grid(row=1, column=2, padx=2, pady=2, sticky="ew")
+        port_entry.insert(0, "443")  # Default to port 443
+
+        ssl_var = tk.BooleanVar(value=True)
+        ssl_checkbox = ttk.Checkbutton(frame, text="Use\n SSL", variable=ssl_var)
+        ssl_checkbox.grid(row=1, column=3, padx=2, pady=2, sticky="ew")
+
+        add_url_btn = ttk.Button(frame, text="Add\n URL", command=lambda: self.add_url(env, url_entry, regex_entry, port_entry, ssl_var), style="TButton", width=5)
+        add_url_btn.grid(row=1, column=4, padx=2, pady=2, sticky="ew")
+
+        refresh_btn = ttk.Button(frame, text="Refresh", command=lambda: self.update_http_table(env), style="TButton", width=8)
+        refresh_btn.grid(row=1, column=5, padx=2, pady=2, sticky="ew")
+
+        reset_btn = ttk.Button(frame, text="Reset\n URLs", command=lambda: self.reset_urls(env), style="TButton", width=8)
+        reset_btn.grid(row=1, column=6, padx=2, pady=2, sticky="ew")
+
+        ignore_ssl_btn = ttk.Button(frame, text="Ignore\n SSL", command=lambda: self.toggle_ssl_verification(env), style="TButton", width=9)
+        ignore_ssl_btn.grid(row=1, column=7, padx=2, pady=2, sticky="ew")
+
+        table = ttk.Treeview(frame, columns=("URL", "Regex Pattern", "Port", "Use SSL", "Status Code", "Status Text", "SSL Match", "Response Time", "Timestamp"), show="headings")
+        for col in ("URL", "Regex Pattern", "Port", "Use SSL", "Status Code", "Status Text", "SSL Match", "Response Time", "Timestamp"):
+            table.heading(col, text=col)
+            table.column(col, anchor=tk.W, width=150)
+        table.grid(row=2, column=0, columnspan=8, padx=5, pady=5, sticky="nsew")
+
+        scrollbar_y = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=table.yview)
+        scrollbar_x = ttk.Scrollbar(frame, orient=tk.HORIZONTAL, command=table.xview)
+        table.configure(yscroll=scrollbar_y.set, xscroll=scrollbar_x.set)
+        scrollbar_y.grid(row=2, column=8, sticky="ns")
+        scrollbar_x.grid(row=3, column=0, columnspan=8, sticky="ew")
+
+        table.bind("<Double-1>", lambda event: self.delete_row(event, env))
+
+        frame.rowconfigure(2, weight=1)
+        frame.columnconfigure(0, weight=1)
+
+        setattr(self, f"{env}_table", table)
+        setattr(self, f"{env}_refresh_time_entry", refresh_time_entry)
+        setattr(self, f"{env}_url_entry", url_entry)
+        setattr(self, f"{env}_regex_entry", regex_entry)
+        setattr(self, f"{env}_port_entry", port_entry)
+        setattr(self, f"{env}_ssl_var", ssl_var)
+        setattr(self, f"{env}_ignore_ssl_btn", ignore_ssl_btn)
+
+    def toggle_ssl_verification(self, env):
+        if env == "production":
+            self.production_ignore_ssl = not self.production_ignore_ssl
+            btn_text = "Verify SSL" if self.production_ignore_ssl else "Ignore SSL"
+        elif env == "qa":
+            self.qa_ignore_ssl = not self.qa_ignore_ssl
+            btn_text = "Verify SSL" if self.qa_ignore_ssl else "Ignore SSL"
+        elif env == "development":
+            self.development_ignore_ssl = not self.development_ignore_ssl
+            btn_text = "Verify SSL" if self.development_ignore_ssl else "Ignore SSL"
+
+        ignore_ssl_btn = getattr(self, f"{env}_ignore_ssl_btn")
+        ignore_ssl_btn.config(text=btn_text)
+
+    def load_urls(self, filename, env):
+        if not os.path.exists(filename):
+            if env == "production":
+                initial_data = [
+                    {"url": "sso.fed.prod.aws.swalife.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True},
+                    {"url": "sso.cfi.prod.aws.southwest.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True},
+                    {"url": "sso.fed.prod.aws.swacorp.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True}
+                ]
+            elif env == "qa":
+                initial_data = [
+                    {"url": "sso.fed.qa.aws.swalife.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True},
+                    {"url": "sso.fed.qa.aws.swacorp.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True}
+                ]
+            elif env == "development":
+                initial_data = [
+                    {"url": "sso.fed.dev.aws.swalife.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True},
+                    {"url": "sso.fed.dev.aws.swacorp.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True}
+                ]
+            with open(filename, "w") as file:
+                json.dump(initial_data, file)
+        with open(filename, "r") as file:
+            return json.load(file)
+
+    def save_urls(self, env):
+        filename = f"{env}_urls.json"
+        with open(filename, "w") as file:
+            json.dump(self.urls[env], file)
+
+    def load_history(self):
+        if os.path.exists("urls_history.json"):
+            with open("urls_history.json", "r") as file:
+                return json.load(file)
+        return {"production": [], "qa": [], "development": []}
+
+    def save_history(self):
+        with open("urls_history.json", "w") as file:
+            json.dump(self.history, file)
+
+    def load_history_to_table(self, env):
+        table = getattr(self, f"{env}_table")
+        for entry in self.history[env]:
+            table.insert("", "end", values=entry)
+
+    def add_url(self, env, url_entry, regex_entry, port_entry, ssl_var):
+        url = url_entry.get().strip()
+        regex = regex_entry.get().strip()
+        port = int(port_entry.get().strip())
+        use_ssl = ssl_var.get()
+        if url:
+            if validate_url_and_check_sql_injection(url):
+                self.urls[env].append({"url": url, "regex": regex, "port": port, "use_ssl": use_ssl})
+                self.save_urls(env)
+                self.update_http_table(env)
+            else:
+                messagebox.showerror("Invalid URL", "The URL is invalid or contains potential SQL injection patterns.")
+                url_entry.focus_set()
+
+    def delete_row(self, event, env):
+        selected_item = getattr(self, f"{env}_table").selection()
+        if selected_item:
+            for item in selected_item:
+                values = getattr(self, f"{env}_table").item(item, "values")
+                url = values[0]
+                getattr(self, f"{env}_table").delete(item)
+                self.delete_url(env, url)
+
+    def delete_url(self, env, url):
+        self.urls[url] = [d for d in self.urls[env] if d != url]
+        self.save_urls(env)
+
+    def reset_urls(self, env):
+        if env == "production":
+            self.urls[env] = [
+                    {"url": "sso.fed.prod.aws.swalife.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True},
+                    {"url": "sso.cfi.prod.aws.southwest.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True},
+                    {"url": "sso.fed.prod.aws.swacorp.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True}
+                ]
+        elif env == "qa":
+            initial_data = [
+                    {"url": "sso.fed.qa.aws.swalife.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True},
+                    {"url": "sso.fed.qa.aws.swacorp.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True}
+                ]
+        elif env == "development":
+            initial_data = [
+                    {"url": "sso.fed.dev.aws.swalife.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True},
+                    {"url": "sso.fed.dev.aws.swacorp.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True}
+                ]
+        self.save_urls(env)
+        self.update_http_table(env)
+
+    async def fetch_url(self, url, regex, port, use_ssl, cert_path, env):
+        if SetAsyncDebug:
+            enable_aiohttp_debugging()
+
+        start_time = datetime.now()
+        cert_path = certifi.where()
+        ssl_context = ssl.create_default_context()
+        if getattr(self, f"{env}_ignore_ssl"):
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+        else:
+            ssl_context.load_verify_locations(cert_path)
+        timeout = aiohttp.ClientTimeout(total=60)
+        connector = aiohttp.TCPConnector(ssl=ssl_context)
+
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Geko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+
+        pattern = re.compile(r'^(?:http[s]?://)?([^:/\s]+)(?::(\d+))?')
+        match = pattern.match(url)
+        if match:
+            hostname = match.group(1)
+            port = int(match.group(2)) if match.group(2) else port
+        else:
+            print(f"Invalid URL: {url}")
+            return (url, regex, port, use_ssl, "Error", "Invalid URL", "✘", "N/A", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+        try:
+            if SetAsyncDebug:
+                enable_aiohttp_debugging()
+            default_ssl_context = ssl.create_default_context()
+            default_ssl_context.check_hostname = False
+            default_ssl_context.verify_mode = ssl.CERT_NONE
+            reader, writer = await asyncio.open_connection(hostname, port, ssl=default_ssl_context, headers=headers, server_hostname=hostname)
+            ssl_object = writer.get_extra_info('ssl_object')
+            cert_binary = ssl_object.getpeercert(binary_form=True)
+            writer.close()
+            await writer.wait_closed()
+
+            x509_cert = x509.load_der_x509_certificate(cert_binary, default_backend())
+            for attribute in x509_cert.subject:
+                if attribute.oid == x509.NameOID.COMMON_NAME:
+                    common_name = attribute.value
+
+            try:
+                ext = x509_cert.extensions.get_extension_for_oid(x509.ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
+                san = ext.value.get_values_for_type(x509.DNSName)
+            except x509.ExtensionNotFound:
+                san = []
+
+            def match_hostname(hostname, pattern):
+                if pattern.startswith('*.'):
+                    return hostname.endswith(pattern[1:])
+                return hostname == pattern
+
+            ssl_match = match_hostname(hostname, common_name) or any(match_hostname(hostname, name) for name in san)
+
+        except Exception as e:
+           # print(e)
+            ssl_match = False
+
+        async with aiohttp.ClientSession(connector=connector, headers=headers, timeout=timeout) as session:
+            encoded_url = yarl.URL(url, encoded=True)
+
+            if SetAsyncDebug:
+                enable_aiohttp_debugging()
+            try:
+                async with session.get(url, ssl=ssl_context) as response:
+                    status_code = response.status
+                    status_text = response.reason
+                    response_time = (datetime.now() - start_time).total_seconds()
+                    content = await response.text()
+                    ssl_match = "N/A"
+                    if use_ssl:
+                        ssl_match = "Match" if ssl_context.check_hostname else "Mismatch"
+                    if regex and not re.search(regex, content):
+                        status_text = "Pattern Failed"
+                    elif regex and re.search(regex, content):
+                        status_text = "OK"
+                    return (url, regex, port, use_ssl, status_code, status_text, ssl_match, response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            except ClientConnectorCertificateError as e:
+                status_code = "SSL Error"
+                status_text = str(e)
+                response_time = (datetime.now() - start_time).total_seconds()
+                ssl_match = "Mismatch"
+                return (url, regex, port, use_ssl, status_code, status_text, ssl_match, response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            except Exception as e:
+                status_code = "Error"
+                status_text = str(e)
+                response_time = (datetime.now() - start_time).total_seconds()
+                ssl_match = "N/A"
+                return (url, regex, port, use_ssl, status_code, status_text, ssl_match, response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+    async def fetch_url_nossl(self, url, regex, port):
+        start_time = datetime.now()
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Geko) Chrome/91.0.4472.124 Safari/537.36',
+            'Content-Type': 'application/json'
+        }
+        async with aiohttp.ClientSession(headers=headers) as session:
+            try:
+                async with session.get(f"http://{url}:{port}") as response:
+                    status_code = response.status
+                    status_text = await response.text()
+                    if regex and not re.search(regex, status_text):
+                        status_text = "Pattern Failed"
+                    elif regex and re.search(regex, status_text):
+                        status_text = "OK"
+                    response_time = (datetime.now() - start_time).total_seconds()
+                    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    return (url, regex, port, False, status_code, status_text, "✘", response_time, timestamp)
+            except Exception as e:
+                response_time = (datetime.now() - start_time).total_seconds()
+                return (url, regex, port, False, "Error", str(e), "✘", response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+    def update_http_table(self, env):
+        table = getattr(self, f"{env}_table")
+        table.delete(*table.get_children())  # Clear the table
+
+        def fetch_url_thread(url, regex, port, use_ssl, cert_path, env):
+            return asyncio.run(self.fetch_url(url, regex, port, use_ssl, cert_path, env))
+
+        def fetch_url_nossl_thread(url, regex, port):
+            return asyncio.run(self.fetch_url_nossl(url, regex, port))
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = []
+            for entry in self.urls[env]:
+                if entry["use_ssl"]:
+                    futures.append(executor.submit(fetch_url_thread, entry["url"], entry["regex"], entry["port"], entry["use_ssl"], cert_path, env))
+                else:
+                    futures.append(executor.submit(fetch_url_nossl_thread, entry["url"], entry["regex"], entry["port"]))
+
+            for future in concurrent.futures.as_completed(futures):
+                result = future.result()
+                table.insert("", "end", values=result)
+                self.history[env].append(result)
+
+        self.save_history()
+
+        refresh_time = int(getattr(self, f"{env}_refresh_time_entry").get()) * 1000  # Convert seconds to milliseconds
+        self.master.after(refresh_time, lambda: self.update_http_table(env))  # Auto-refresh based on user input
+
+class JWKSCheck:
+    def __init__(self, master, style):
+        self.master = master
+        self.style = style
+        self.is_collapsed = False
+        self.default_url = "https://auth.pingone.com/0a7af83d-4ed9-4510-93cd-506fe835f69a/as/jwks"
+        self.url = self.default_url
+        ssl_context = create_combined_ssl_context(CA_path, cert_path) if cert_path else None
+        self.setup_ui()
+        self.update_jwks_table()
+
+
+    def validate_url(self, event):
+        url = self.url_entry.get()
+        regex = re.compile(
+        r'^(?:http|ftp)s?://'  # http:// or https://
+        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|'  # domain...
+        r'localhost|'  # localhost...
+        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|'  # IP
+        r'\[?[A-F0-9]*:[A-F0-9:]+\]?)'  # IPv6
+        r'(?::\d+)?'  # optional port
+        r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+        if not re.match(regex, url):
+            messagebox.showerror("Invalid URL", "Please enter a valid URL starting with http:// or https://")
+            self.url_entry.focus_set()
+
+    def setup_ui(self):
+    # Apply custom theme if it exists, otherwise apply default theme
+        initial_theme = load_custom_theme()
+        apply_theme(initial_theme)
+        self.frame = ttk.LabelFrame(self.master, padding="10")
+        self.frame.grid(row=3, column=0, sticky="nsew")
+
+        self.table_title_frame = ttk.Frame(self.frame)
+        self.table_title_frame.grid(row=0, column=0, columnspan=4, sticky="ew")
+        ttk.Label(self.table_title_frame, text="JWKSCheck").pack(side=tk.LEFT)
+
+        self.url_entry = ttk.Entry(self.frame, width=50)
+        self.url_entry.insert(0, "https://auth.pingone.com/0a7af83d-4ed9-4510-93cd-506fe835f69a/as/jwks")
+        self.url_entry.grid(row=1, column=0, padx=5, pady=5)
+        self.url_entry.bind("<FocusOut>", self.validate_url)
+
+        self.add_url_btn = ttk.Button(self.frame, text="Set URL", command=self.set_url)
+        self.add_url_btn.grid(row=1, column=1, padx=5, pady=5)
+
+        self.refresh_btn = ttk.Button(self.frame, text="Refresh", command=self.update_jwks_table)
+        self.refresh_btn.grid(row=1, column=2, padx=5, pady=5)
+
+        self.cert_table = self.setup_table(self.frame, ("Key ID", "Name", "Not Valid Before", "Not Valid After"))
+        self.cert_table.grid(row=2, column=0, columnspan=4, padx=5, pady=5, sticky="nsew")
+
+        self.cert_scrollbar_y = ttk.Scrollbar(self.frame, orient=tk.VERTICAL, command=self.cert_table.yview)
+        self.cert_table.configure(yscroll=self.cert_scrollbar_y.set)
+        self.cert_scrollbar_y.grid(row=2, column=4, sticky='ns')
+
+        self.cert_scrollbar_x = ttk.Scrollbar(self.frame, orient=tk.HORIZONTAL, command=self.cert_table.xview)
+        self.cert_table.configure(xscroll=self.cert_scrollbar_x.set)
+        self.cert_scrollbar_x.grid(row=3, column=0, columnspan=4, sticky='ew')
+
+        self.ec_table = self.setup_table(self.frame, ("Key Type", "Key ID", "Use", "X", "Y", "Curve"))
+        self.ec_table.grid(row=4, column=0, columnspan=4, padx=5, pady=5, sticky="nsew")
+
+        self.ec_scrollbar_y = ttk.Scrollbar(self.frame, orient=tk.VERTICAL, command=self.ec_table.yview)
+        self.ec_table.configure(yscroll=self.ec_scrollbar_y.set)
+        self.ec_scrollbar_y.grid(row=4, column=4, sticky='ns')
+
+        self.ec_scrollbar_x = ttk.Scrollbar(self.frame, orient=tk.HORIZONTAL, command=self.ec_table.xview)
+        self.ec_table.configure(xscroll=self.ec_scrollbar_x.set)
+        self.ec_scrollbar_x.grid(row=5, column=0, columnspan=4, sticky='ew')
+
+        self.frame.rowconfigure(2, weight=1)
+        self.frame.rowconfigure(4, weight=1)
+        self.frame.columnconfigure(0, weight=1)
+        self.cert_table.bind("<Double-1>", self.delete_row)
+        self.ec_table.bind("<Double-1>", self.delete_row)
+
+    def delete_row(self, event):
+        selected_item = self.table.selection()[0]
+        self.table.delete(selected_item)
+
+    def set_url(self):
+        self.url = self.url_entry.get().strip()
+        if not self.url:
+            self.url = self.default_url
+        self.update_jwks_table()
+
+    def update_jwks_table(self):
+        self.clear_table(self.cert_table)
+        self.clear_table(self.ec_table)
+        try:
+            response = requests.get(self.url, verify=False)
+            response.raise_for_status()
+            jwks = response.json()
+            for key in jwks.get('keys', []):
+                if 'x5c' in key:
+                    for cert in key['x5c']:
+                        cert_bytes = base64.b64decode(cert)
+                        x509_cert = x509.load_der_x509_certificate(cert_bytes, default_backend())
+                        key_id = key['kid']
+                        name = x509_cert.subject
+                        not_valid_before = x509_cert.not_valid_before.strftime('%Y-%m-%d %H:%M:%S')
+                        not_valid_after = x509_cert.not_valid_after.strftime('%Y-%m-%d %H:%M:%S')
+                        self.cert_table.insert("", "end", values=(key_id, name, not_valid_before, not_valid_after))
+                if key['kty'] == 'EC':
+                    key_type = key['kty']
+                    key_id = key['kid']
+                    use = key['use']
+                    x = key.get('x', '')
+                    y = key.get('y', '')
+                    curve = key.get('crv', '')
+                    self.ec_table.insert("", "end", values=(key_type, key_id, use, x, y, curve))
+        except Exception as e:
+            #print(f"Error fetching JWKS: {e}")
+            log_error("Error fetching JWKS", e)
+        self.master.after(600000, self.update_jwks_table)  # Auto-refresh every 10 minutes
+
+    def setup_table(self, master, columns):
+        table = ttk.Treeview(master, columns=columns, show="headings")
+        for col in columns:
+            table.heading(col, text=col)
+            table.column(col, anchor=tk.W, width=150, stretch=True)
+        return table
+
+    def clear_table(self, table):
+        for item in table.get_children():
+            table.delete(item)
+
+def backup_data(NSLookup, HTTPRequest):
+    try:
+        data = {}
+        environments = ["production", "qa", "development"]
+
+        for env in environments:
+            # Get Lookup Table
+            try:
+                with open(f"{env}_domains.json", "r") as file:
+                    nslookup_data = json.load(file)
+            except FileNotFoundError:
+                nslookup_data = ["server1"]
+
+            # Get HTTP Table
+            try:
+                with open(f"{env}_urls.json", "r") as file:
+                    http_data = json.load(file)
+            except FileNotFoundError:
+                http_data = [{"url": "server1", "regex": "ok"}]
+
+            # Store data for the environment
+            data[env] = {
+                "nslookup": nslookup_data,
+                "httprequest": http_data
+            }
+
+        # Add theme information
+        if os.path.exists("customtheme.json"):
+            with open("customtheme.json", "r") as file:
+                custom_theme = json.load(file)
+        else:
+            custom_theme = False
+
+        data["theme"] = ttk.Style().theme_use()
+        if custom_theme: data["custom_theme"] = custom_theme.copy()
+
+        # Create backup file
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"backup_{timestamp}.json"
+        with open(filename, "w") as file:
+            json.dump(data, file)
+
+        messagebox.showinfo("Backup Completed", f"The Backup File {filename} was created.")
+        print(f"Backup created: {filename}")
+    except Exception as e:
+        print(f"Error creating backup: {e}")
+        log_error("Error creating backup file", e)
+
+def restore_data():
+    filename = filedialog.askopenfilename(title="Select Backup File", filetypes=[("JSON files", "*.json")])
+    if filename:
+        try:
+            with open(filename, "r") as file:
+                data = json.load(file)
+
+            environments = ["production", "qa", "development"]
+
+            for env in environments:
+                with open(f"{env}_domains.json", "w") as ns_file:
+                    json.dump(data.get(env, {}).get("nslookup", []), ns_file)
+                with open(f"{env}_urls.json", "w") as http_file:
+                    json.dump(data.get(env, {}).get("httprequest", []), http_file)
+
+            ttk.Style().theme_use(data.get("theme", "clam"))
+            try:
+                custom_theme = data.get("custom_theme", {})
+                if custom_theme:
+                    with open(f"customtheme.json", "w") as customtheme_file:
+                        json.dump(custom_theme, customtheme_file)
+                    # Apply custom theme if it exists, otherwise apply default theme
+                    initial_theme = load_custom_theme()
+                    apply_theme(initial_theme)
+                   # apply_theme("custom")
+                    print(f"Data restored from {filename}")
+            except Exception as e:
+                #print(f"Error restoring data: {e}")
+                log_error("Restore Custom failed", e)
+        except Exception as e:
+            print(f"Error restoring data: {e}")
+            log_error("Restore failed", e)
+
+
 class ActiveDirectoryDebugger:
 
  # Define the templates for the different AD servers
@@ -2936,556 +3492,6 @@ class ActiveDirectoryDebugger:
             for group in missing_groups:
                 writer.writerow([group])
         messagebox.showinfo("Export Successful", f"Missing groups have been exported successfully to {filename}.")
-
-    def apply_theme(self, theme, env):
-        style = ttk.Style()
-        style.theme_use("clam")
-        colors = NORD_STYLES[theme]
-
-        background_color = colors["background"]
-        style.configure("TFrame", background=background_color)
-        style.configure("TLabelFrame", background=background_color, foreground=colors["foreground"])
-        style.configure("Treeview", background=background_color, foreground=colors["foreground"], fieldbackground=background_color)
-        style.configure("Treeview.Heading", background=colors["header"], foreground=colors["foreground"])
-        style.configure("TButton", background=colors["button"], foreground=colors["foreground"])
-        style.map("TButton", background=[("active", colors["highlight"])])
-        style.configure("TEntry", background=background_color, foreground=colors["foreground"], fieldbackground=background_color)
-        style.configure("TText", background=background_color, foreground=colors["foreground"])
-        style.configure("Invert.TButton", background=colors["invert_button"], foreground=colors["foreground"])
-        style.map("Invert.TButton", background=[("active", colors["highlight"])])
-        style.configure("TButton", background=colors["button_background"], foreground=colors["foreground"])
-        style.configure("TLabel", background=colors["button_background"], foreground=colors["foreground"])
-        style.configure("TEntry", fieldbackground=colors["button_background"], foreground=colors["foreground"])
-
-    def setup_ui(self):
-        self.notebook = ttk.Notebook(self.master)
-        self.notebook.grid(row=2, column=0, sticky="nsew")
-
-        self.frames = {}
-        for env in ["production", "qa", "development"]:
-            frame = ttk.Frame(self.notebook)
-            self.notebook.add(frame, text=env.capitalize())
-            self.frames[env] = frame
-
-            self.setup_table_ui(frame, env)
-            self.apply_theme(self.style, env)
-
-        self.master.rowconfigure(2, weight=1)
-        self.master.columnconfigure(0, weight=1)
-
-    def setup_table_ui(self, frame, env):
-        table_title_frame = ttk.Frame(frame)
-        table_title_frame.grid(row=0, column=0, columnspan=7, sticky="ew")
-        ttk.Label(table_title_frame, text=f"{env.capitalize()} HTTPRequest").pack(side=tk.LEFT)
-
-        ttk.Label(table_title_frame, text="Refresh Time (s):").pack(side=tk.RIGHT, padx=5)
-        refresh_time_entry = ttk.Entry(table_title_frame, width=10)
-        refresh_time_entry.pack(side=tk.RIGHT, padx=5)
-        refresh_time_entry.insert(0, "600")  # Default to 10 minutes
-
-        url_entry = ttk.Entry(frame, width=50)
-        url_entry.grid(row=1, column=0, padx=2, pady=2, sticky="ew")
-        url_entry.insert(0, "Enter URL")
-
-        regex_entry = ttk.Entry(frame, width=15)
-        regex_entry.grid(row=1, column=1, padx=2, pady=2, sticky="ew")
-        regex_entry.insert(0, "Enter regex")
-
-        port_entry = ttk.Entry(frame, width=5)
-        port_entry.grid(row=1, column=2, padx=2, pady=2, sticky="ew")
-        port_entry.insert(0, "443")  # Default to port 443
-
-        ssl_var = tk.BooleanVar(value=True)
-        ssl_checkbox = ttk.Checkbutton(frame, text="Use\n SSL", variable=ssl_var)
-        ssl_checkbox.grid(row=1, column=3, padx=2, pady=2, sticky="ew")
-
-        add_url_btn = ttk.Button(frame, text="Add\n URL", command=lambda: self.add_url(env, url_entry, regex_entry, port_entry, ssl_var), style="TButton", width=5)
-        add_url_btn.grid(row=1, column=4, padx=2, pady=2, sticky="ew")
-
-        refresh_btn = ttk.Button(frame, text="Refresh", command=lambda: self.update_http_table(env), style="TButton", width=8)
-        refresh_btn.grid(row=1, column=5, padx=2, pady=2, sticky="ew")
-
-        reset_btn = ttk.Button(frame, text="Reset\n URLs", command=lambda: self.reset_urls(env), style="TButton", width=8)
-        reset_btn.grid(row=1, column=6, padx=2, pady=2, sticky="ew")
-
-        ignore_ssl_btn = ttk.Button(frame, text="Ignore\n SSL", command=lambda: self.toggle_ssl_verification(env), style="TButton", width=9)
-        ignore_ssl_btn.grid(row=1, column=7, padx=2, pady=2, sticky="ew")
-
-        table = ttk.Treeview(frame, columns=("URL", "Regex Pattern", "Port", "Use SSL", "Status Code", "Status Text", "SSL Match", "Response Time", "Timestamp"), show="headings")
-        for col in ("URL", "Regex Pattern", "Port", "Use SSL", "Status Code", "Status Text", "SSL Match", "Response Time", "Timestamp"):
-            table.heading(col, text=col)
-            table.column(col, anchor=tk.W, width=150)
-        table.grid(row=2, column=0, columnspan=8, padx=5, pady=5, sticky="nsew")
-
-        scrollbar_y = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=table.yview)
-        scrollbar_x = ttk.Scrollbar(frame, orient=tk.HORIZONTAL, command=table.xview)
-        table.configure(yscroll=scrollbar_y.set, xscroll=scrollbar_x.set)
-        scrollbar_y.grid(row=2, column=8, sticky="ns")
-        scrollbar_x.grid(row=3, column=0, columnspan=8, sticky="ew")
-
-        table.bind("<Double-1>", lambda event: self.delete_row(event, env))
-
-        frame.rowconfigure(2, weight=1)
-        frame.columnconfigure(0, weight=1)
-
-        setattr(self, f"{env}_table", table)
-        setattr(self, f"{env}_refresh_time_entry", refresh_time_entry)
-        setattr(self, f"{env}_url_entry", url_entry)
-        setattr(self, f"{env}_regex_entry", regex_entry)
-        setattr(self, f"{env}_port_entry", port_entry)
-        setattr(self, f"{env}_ssl_var", ssl_var)
-        setattr(self, f"{env}_ignore_ssl_btn", ignore_ssl_btn)
-
-    def toggle_ssl_verification(self, env):
-        if env == "production":
-            self.production_ignore_ssl = not self.production_ignore_ssl
-            btn_text = "Verify SSL" if self.production_ignore_ssl else "Ignore SSL"
-        elif env == "qa":
-            self.qa_ignore_ssl = not self.qa_ignore_ssl
-            btn_text = "Verify SSL" if self.qa_ignore_ssl else "Ignore SSL"
-        elif env == "development":
-            self.development_ignore_ssl = not self.development_ignore_ssl
-            btn_text = "Verify SSL" if self.development_ignore_ssl else "Ignore SSL"
-
-        ignore_ssl_btn = getattr(self, f"{env}_ignore_ssl_btn")
-        ignore_ssl_btn.config(text=btn_text)
-
-    def load_urls(self, filename, env):
-        if not os.path.exists(filename):
-            if env == "production":
-                initial_data = [
-                    {"url": "sso.fed.prod.aws.swalife.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True},
-                    {"url": "sso.cfi.prod.aws.southwest.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True},
-                    {"url": "sso.fed.prod.aws.swacorp.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True}
-                ]
-            elif env == "qa":
-                initial_data = [
-                    {"url": "sso.fed.qa.aws.swalife.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True},
-                    {"url": "sso.fed.qa.aws.swacorp.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True}
-                ]
-            elif env == "development":
-                initial_data = [
-                    {"url": "sso.fed.dev.aws.swalife.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True},
-                    {"url": "sso.fed.dev.aws.swacorp.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True}
-                ]
-            with open(filename, "w") as file:
-                json.dump(initial_data, file)
-        with open(filename, "r") as file:
-            return json.load(file)
-
-    def save_urls(self, env):
-        filename = f"{env}_urls.json"
-        with open(filename, "w") as file:
-            json.dump(self.urls[env], file)
-
-    def load_history(self):
-        if os.path.exists("urls_history.json"):
-            with open("urls_history.json", "r") as file:
-                return json.load(file)
-        return {"production": [], "qa": [], "development": []}
-
-    def save_history(self):
-        with open("urls_history.json", "w") as file:
-            json.dump(self.history, file)
-
-    def load_history_to_table(self, env):
-        table = getattr(self, f"{env}_table")
-        for entry in self.history[env]:
-            table.insert("", "end", values=entry)
-
-    def add_url(self, env, url_entry, regex_entry, port_entry, ssl_var):
-        url = url_entry.get().strip()
-        regex = regex_entry.get().strip()
-        port = int(port_entry.get().strip())
-        use_ssl = ssl_var.get()
-        if url:
-            if validate_url_and_check_sql_injection(url):
-                self.urls[env].append({"url": url, "regex": regex, "port": port, "use_ssl": use_ssl})
-                self.save_urls(env)
-                self.update_http_table(env)
-            else:
-                messagebox.showerror("Invalid URL", "The URL is invalid or contains potential SQL injection patterns.")
-                url_entry.focus_set()
-
-    def delete_row(self, event, env):
-        selected_item = getattr(self, f"{env}_table").selection()
-        if selected_item:
-            for item in selected_item:
-                values = getattr(self, f"{env}_table").item(item, "values")
-                url = values[0]
-                getattr(self, f"{env}_table").delete(item)
-                self.delete_url(env, url)
-
-    def delete_url(self, env, url):
-        self.urls[url] = [d for d in self.urls[env] if d != url]
-        self.save_urls(env)
-
-    def reset_urls(self, env):
-        if env == "production":
-            self.urls[env] = [
-                    {"url": "sso.fed.prod.aws.swalife.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True},
-                    {"url": "sso.cfi.prod.aws.southwest.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True},
-                    {"url": "sso.fed.prod.aws.swacorp.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True}
-                ]
-        elif env == "qa":
-            initial_data = [
-                    {"url": "sso.fed.qa.aws.swalife.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True},
-                    {"url": "sso.fed.qa.aws.swacorp.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True}
-                ]
-        elif env == "development":
-            initial_data = [
-                    {"url": "sso.fed.dev.aws.swalife.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True},
-                    {"url": "sso.fed.dev.aws.swacorp.com/pf/heartbeat.ping", "regex": "OK", "port": 443, "use_ssl": True}
-                ]
-        self.save_urls(env)
-        self.update_http_table(env)
-
-    async def fetch_url(self, url, regex, port, use_ssl, cert_path, env):
-        if SetAsyncDebug:
-            enable_aiohttp_debugging()
-
-        start_time = datetime.now()
-        cert_path = certifi.where()
-        ssl_context = ssl.create_default_context()
-        if getattr(self, f"{env}_ignore_ssl"):
-            ssl_context.check_hostname = False
-            ssl_context.verify_mode = ssl.CERT_NONE
-        else:
-            ssl_context.load_verify_locations(cert_path)
-        timeout = aiohttp.ClientTimeout(total=60)
-        connector = aiohttp.TCPConnector(ssl=ssl_context)
-
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Geko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-
-        pattern = re.compile(r'^(?:http[s]?://)?([^:/\s]+)(?::(\d+))?')
-        match = pattern.match(url)
-        if match:
-            hostname = match.group(1)
-            port = int(match.group(2)) if match.group(2) else port
-        else:
-            print(f"Invalid URL: {url}")
-            return (url, regex, port, use_ssl, "Error", "Invalid URL", "✘", "N/A", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-
-        try:
-            if SetAsyncDebug:
-                enable_aiohttp_debugging()
-            default_ssl_context = ssl.create_default_context()
-            default_ssl_context.check_hostname = False
-            default_ssl_context.verify_mode = ssl.CERT_NONE
-            reader, writer = await asyncio.open_connection(hostname, port, ssl=default_ssl_context, headers=headers, server_hostname=hostname)
-            ssl_object = writer.get_extra_info('ssl_object')
-            cert_binary = ssl_object.getpeercert(binary_form=True)
-            writer.close()
-            await writer.wait_closed()
-
-            x509_cert = x509.load_der_x509_certificate(cert_binary, default_backend())
-            for attribute in x509_cert.subject:
-                if attribute.oid == x509.NameOID.COMMON_NAME:
-                    common_name = attribute.value
-
-            try:
-                ext = x509_cert.extensions.get_extension_for_oid(x509.ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
-                san = ext.value.get_values_for_type(x509.DNSName)
-            except x509.ExtensionNotFound:
-                san = []
-
-            def match_hostname(hostname, pattern):
-                if pattern.startswith('*.'):
-                    return hostname.endswith(pattern[1:])
-                return hostname == pattern
-
-            ssl_match = match_hostname(hostname, common_name) or any(match_hostname(hostname, name) for name in san)
-
-        except Exception as e:
-           # print(e)
-            ssl_match = False
-
-        async with aiohttp.ClientSession(connector=connector, headers=headers, timeout=timeout) as session:
-            encoded_url = yarl.URL(url, encoded=True)
-
-            if SetAsyncDebug:
-                enable_aiohttp_debugging()
-            try:
-                #async with session.get(f"{'https' if use_ssl else 'http'}://{hostname}:{port}") as response:
-                async with session.get(f"{'https' if use_ssl else 'http'}://{url}") as response:
-                    status_code = response.status
-                    logging.debug(f"Request url: {url}")
-                    logging.debug(f"Headers: {headers}")
-
-                    status_text = await response.text()
-                    if regex and not re.search(regex, status_text):
-                        status_text = "Pattern Failed"
-                    elif regex and re.search(regex, status_text):
-                        status_text = "OK"
-                    response_time = (datetime.now() - start_time).total_seconds()
-                    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    return (url, regex, port, use_ssl, status_code, status_text, "✔" if ssl_match else "✘", response_time, timestamp)
-            except ClientConnectorCertificateError as e:
-                response_time = (datetime.now() - start_time).total_seconds()
-                return (url, regex, port, use_ssl, "Error", f"SSL Certificate Error: {str(e)}", "✘", response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-            except Exception as e:
-                response_time = (datetime.now() - start_time).total_seconds()
-                return (url, regex, port, use_ssl, "Error", str(e), "✘", response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-
-    async def fetch_url_nossl(self, url, regex, port):
-        start_time = datetime.now()
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Geko) Chrome/91.0.4472.124 Safari/537.36',
-            'Content-Type': 'application/json'
-        }
-        async with aiohttp.ClientSession(headers=headers) as session:
-            try:
-                async with session.get(f"http://{url}:{port}") as response:
-                    status_code = response.status
-                    status_text = await response.text()
-                    if regex and not re.search(regex, status_text):
-                        status_text = "Pattern Failed"
-                    elif regex and re.search(regex, status_text):
-                        status_text = "OK"
-                    response_time = (datetime.now() - start_time).total_seconds()
-                    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    return (url, regex, port, False, status_code, status_text, "✘", response_time, timestamp)
-            except Exception as e:
-                response_time = (datetime.now() - start_time).total_seconds()
-                return (url, regex, port, False, "Error", str(e), "✘", response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-
-    def update_http_table(self, env):
-        table = getattr(self, f"{env}_table")
-        table.delete(*table.get_children())  # Clear the table
-
-        def fetch_url_thread(url, regex, port, use_ssl, cert_path, env):
-            return asyncio.run(self.fetch_url(url, regex, port, use_ssl, cert_path, env))
-
-        def fetch_url_nossl_thread(url, regex, port):
-            return asyncio.run(self.fetch_url_nossl(url, regex, port))
-
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = []
-            for entry in self.urls[env]:
-                if entry["use_ssl"]:
-                    futures.append(executor.submit(fetch_url_thread, entry["url"], entry["regex"], entry["port"], entry["use_ssl"], cert_path, env))
-                else:
-                    futures.append(executor.submit(fetch_url_nossl_thread, entry["url"], entry["regex"], entry["port"]))
-
-            for future in concurrent.futures.as_completed(futures):
-                result = future.result()
-                table.insert("", "end", values=result)
-                self.history[env].append(result)
-
-        self.save_history()
-
-        refresh_time = int(getattr(self, f"{env}_refresh_time_entry").get()) * 1000  # Convert seconds to milliseconds
-        self.master.after(refresh_time, lambda: self.update_http_table(env))  # Auto-refresh based on user input
-
-class JWKSCheck:
-    def __init__(self, master, style):
-        self.master = master
-        self.style = style
-        self.is_collapsed = False
-        self.default_url = "https://auth.pingone.com/0a7af83d-4ed9-4510-93cd-506fe835f69a/as/jwks"
-        self.url = self.default_url
-        ssl_context = create_combined_ssl_context(CA_path, cert_path) if cert_path else None
-        self.setup_ui()
-        self.update_jwks_table()
-
-
-    def validate_url(self, event):
-        url = self.url_entry.get()
-        regex = re.compile(
-        r'^(?:http|ftp)s?://'  # http:// or https://
-        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|'  # domain...
-        r'localhost|'  # localhost...
-        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|'  # IP
-        r'\[?[A-F0-9]*:[A-F0-9:]+\]?)'  # IPv6
-        r'(?::\d+)?'  # optional port
-        r'(?:/?|[/?]\S+)$', re.IGNORECASE)
-        if not re.match(regex, url):
-            messagebox.showerror("Invalid URL", "Please enter a valid URL starting with http:// or https://")
-            self.url_entry.focus_set()
-
-    def setup_ui(self):
-    # Apply custom theme if it exists, otherwise apply default theme
-        initial_theme = load_custom_theme()
-        apply_theme(initial_theme)
-        self.frame = ttk.LabelFrame(self.master, padding="10")
-        self.frame.grid(row=3, column=0, sticky="nsew")
-
-        self.table_title_frame = ttk.Frame(self.frame)
-        self.table_title_frame.grid(row=0, column=0, columnspan=4, sticky="ew")
-        ttk.Label(self.table_title_frame, text="JWKSCheck").pack(side=tk.LEFT)
-
-        self.url_entry = ttk.Entry(self.frame, width=50)
-        self.url_entry.insert(0, "https://auth.pingone.com/0a7af83d-4ed9-4510-93cd-506fe835f69a/as/jwks")
-        self.url_entry.grid(row=1, column=0, padx=5, pady=5)
-        self.url_entry.bind("<FocusOut>", self.validate_url)
-
-        self.add_url_btn = ttk.Button(self.frame, text="Set URL", command=self.set_url)
-        self.add_url_btn.grid(row=1, column=1, padx=5, pady=5)
-
-        self.refresh_btn = ttk.Button(self.frame, text="Refresh", command=self.update_jwks_table)
-        self.refresh_btn.grid(row=1, column=2, padx=5, pady=5)
-
-        self.cert_table = self.setup_table(self.frame, ("Key ID", "Name", "Not Valid Before", "Not Valid After"))
-        self.cert_table.grid(row=2, column=0, columnspan=4, padx=5, pady=5, sticky="nsew")
-
-        self.cert_scrollbar_y = ttk.Scrollbar(self.frame, orient=tk.VERTICAL, command=self.cert_table.yview)
-        self.cert_table.configure(yscroll=self.cert_scrollbar_y.set)
-        self.cert_scrollbar_y.grid(row=2, column=4, sticky='ns')
-
-        self.cert_scrollbar_x = ttk.Scrollbar(self.frame, orient=tk.HORIZONTAL, command=self.cert_table.xview)
-        self.cert_table.configure(xscroll=self.cert_scrollbar_x.set)
-        self.cert_scrollbar_x.grid(row=3, column=0, columnspan=4, sticky='ew')
-
-        self.ec_table = self.setup_table(self.frame, ("Key Type", "Key ID", "Use", "X", "Y", "Curve"))
-        self.ec_table.grid(row=4, column=0, columnspan=4, padx=5, pady=5, sticky="nsew")
-
-        self.ec_scrollbar_y = ttk.Scrollbar(self.frame, orient=tk.VERTICAL, command=self.ec_table.yview)
-        self.ec_table.configure(yscroll=self.ec_scrollbar_y.set)
-        self.ec_scrollbar_y.grid(row=4, column=4, sticky='ns')
-
-        self.ec_scrollbar_x = ttk.Scrollbar(self.frame, orient=tk.HORIZONTAL, command=self.ec_table.xview)
-        self.ec_table.configure(xscroll=self.ec_scrollbar_x.set)
-        self.ec_scrollbar_x.grid(row=5, column=0, columnspan=4, sticky='ew')
-
-        self.frame.rowconfigure(2, weight=1)
-        self.frame.rowconfigure(4, weight=1)
-        self.frame.columnconfigure(0, weight=1)
-        self.cert_table.bind("<Double-1>", self.delete_row)
-        self.ec_table.bind("<Double-1>", self.delete_row)
-
-    def delete_row(self, event):
-        selected_item = self.table.selection()[0]
-        self.table.delete(selected_item)
-
-    def set_url(self):
-        self.url = self.url_entry.get().strip()
-        if not self.url:
-            self.url = self.default_url
-        self.update_jwks_table()
-
-    def update_jwks_table(self):
-        self.clear_table(self.cert_table)
-        self.clear_table(self.ec_table)
-        try:
-            response = requests.get(self.url, verify=False)
-            response.raise_for_status()
-            jwks = response.json()
-            for key in jwks.get('keys', []):
-                if 'x5c' in key:
-                    for cert in key['x5c']:
-                        cert_bytes = base64.b64decode(cert)
-                        x509_cert = x509.load_der_x509_certificate(cert_bytes, default_backend())
-                        key_id = key['kid']
-                        name = x509_cert.subject
-                        not_valid_before = x509_cert.not_valid_before.strftime('%Y-%m-%d %H:%M:%S')
-                        not_valid_after = x509_cert.not_valid_after.strftime('%Y-%m-%d %H:%M:%S')
-                        self.cert_table.insert("", "end", values=(key_id, name, not_valid_before, not_valid_after))
-                if key['kty'] == 'EC':
-                    key_type = key['kty']
-                    key_id = key['kid']
-                    use = key['use']
-                    x = key.get('x', '')
-                    y = key.get('y', '')
-                    curve = key.get('crv', '')
-                    self.ec_table.insert("", "end", values=(key_type, key_id, use, x, y, curve))
-        except Exception as e:
-            #print(f"Error fetching JWKS: {e}")
-            log_error("Error fetching JWKS", e)
-        self.master.after(600000, self.update_jwks_table)  # Auto-refresh every 10 minutes
-
-    def setup_table(self, master, columns):
-        table = ttk.Treeview(master, columns=columns, show="headings")
-        for col in columns:
-            table.heading(col, text=col)
-            table.column(col, anchor=tk.W, width=150, stretch=True)
-        return table
-
-    def clear_table(self, table):
-        for item in table.get_children():
-            table.delete(item)
-
-def backup_data(NSLookup, HTTPRequest):
-    try:
-        data = {}
-        environments = ["production", "qa", "development"]
-
-        for env in environments:
-            # Get Lookup Table
-            try:
-                with open(f"{env}_domains.json", "r") as file:
-                    nslookup_data = json.load(file)
-            except FileNotFoundError:
-                nslookup_data = ["server1"]
-
-            # Get HTTP Table
-            try:
-                with open(f"{env}_urls.json", "r") as file:
-                    http_data = json.load(file)
-            except FileNotFoundError:
-                http_data = [{"url": "server1", "regex": "ok"}]
-
-            # Store data for the environment
-            data[env] = {
-                "nslookup": nslookup_data,
-                "httprequest": http_data
-            }
-
-        # Add theme information
-        if os.path.exists("customtheme.json"):
-            with open("customtheme.json", "r") as file:
-                custom_theme = json.load(file)
-        else:
-            custom_theme = False
-
-        data["theme"] = ttk.Style().theme_use()
-        if custom_theme: data["custom_theme"] = custom_theme.copy()
-
-        # Create backup file
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"backup_{timestamp}.json"
-        with open(filename, "w") as file:
-            json.dump(data, file)
-
-        messagebox.showinfo("Backup Completed", f"The Backup File {filename} was created.")
-        print(f"Backup created: {filename}")
-    except Exception as e:
-        print(f"Error creating backup: {e}")
-        log_error("Error creating backup file", e)
-
-def restore_data():
-    filename = filedialog.askopenfilename(title="Select Backup File", filetypes=[("JSON files", "*.json")])
-    if filename:
-        try:
-            with open(filename, "r") as file:
-                data = json.load(file)
-
-            environments = ["production", "qa", "development"]
-
-            for env in environments:
-                with open(f"{env}_domains.json", "w") as ns_file:
-                    json.dump(data.get(env, {}).get("nslookup", []), ns_file)
-                with open(f"{env}_urls.json", "w") as http_file:
-                    json.dump(data.get(env, {}).get("httprequest", []), http_file)
-
-            ttk.Style().theme_use(data.get("theme", "clam"))
-            try:
-                custom_theme = data.get("custom_theme", {})
-                if custom_theme:
-                    with open(f"customtheme.json", "w") as customtheme_file:
-                        json.dump(custom_theme, customtheme_file)
-                    # Apply custom theme if it exists, otherwise apply default theme
-                    initial_theme = load_custom_theme()
-                    apply_theme(initial_theme)
-                   # apply_theme("custom")
-                    print(f"Data restored from {filename}")
-            except Exception as e:
-                #print(f"Error restoring data: {e}")
-                log_error("Restore Custom failed", e)
-        except Exception as e:
-            print(f"Error restoring data: {e}")
-            log_error("Restore failed", e)
 
 def main():
     global first_run

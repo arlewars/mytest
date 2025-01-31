@@ -2038,17 +2038,24 @@ class OIDCDebugger:
         table_scrollbar_y.grid(row=0, column=2, sticky="ns")
         table_scrollbar_x.grid(row=1, column=1, sticky="ew")
 
-        self.response_text = tk.Text(self.frame, height=30, width=70)
+        self.response_text = tk.Text(self.frame, height=10, width=70)
         self.response_text.grid(row=16, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
         response_text_scrollbar = ttk.Scrollbar(self.frame, orient="vertical", command=self.response_text.yview)
         self.response_text.configure(yscrollcommand=response_text_scrollbar.set)
         response_text_scrollbar.grid(row=16, column=2, sticky="ns")
 
+        # Add new log text frame
+        self.log_text = tk.Text(self.frame, height=10, width=70)
+        self.log_text.grid(row=17, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
+        log_text_scrollbar = ttk.Scrollbar(self.frame, orient="vertical", command=self.log_text.yview)
+        self.log_text.configure(yscrollcommand=log_text_scrollbar.set)
+        log_text_scrollbar.grid(row=17, column=2, sticky="ns")
+
         self.certificate_btn = ttk.Button(self.frame, text="Show Certificate", command=self.show_certificate)
-        self.certificate_btn.grid(row=17, column=0, padx=5, pady=5)
+        self.certificate_btn.grid(row=18, column=1, padx=2, pady=5)
 
         self.replace_certificate_btn = ttk.Button(self.frame, text="Replace Certificate", command=self.replace_certificate)
-        self.replace_certificate_btn.grid(row=18, column=0, padx=5, pady=5)
+        self.replace_certificate_btn.grid(row=18, column=0, padx=2, pady=5)
 
         self.oidc_log_window = None
         self.log_oidc_process = tk.BooleanVar()
@@ -2079,9 +2086,12 @@ class OIDCDebugger:
         self.exchange_code_for_tokens_checkbox.configure(state=state)
         self.user_info_query_checkbox.configure(state=state)
         self.submit_btn.configure(state=state)
-    
+
     def write_to_response_text(self, output):
         self.response_text.insert(tk.END, f"{output}\n")
+
+    def log_message(self, output):
+        self.log_text.insert(tk.END, f"{output}\n")
 
     def add_horizontal_rule(self):
         self.write_to_response_text( f"---------------------------------------------------\n\n")
@@ -2458,8 +2468,10 @@ class OIDCDebugger:
         
         https_server_thread = threading.Thread(target=https_server.serve_forever)
         https_server_thread.daemon = True
+        print(f"new: HTTPS server started on https://{server_name}:{self.server_port}/callback")
         try:
             https_server_thread.start()
+            print(f"new2: HTTPS server start")
             self.schedule_ui_update(f"HTTPS server started on https://{server_name}:{self.server_port}/callback\n\n")
             self.schedule_ui_update(f"Please confirm {self.client_id} has the redirect uri: https://{server_name}:{self.server_port}/callback\n")
             if self.log_oidc_process.get():
@@ -2487,16 +2499,17 @@ class OIDCDebugger:
                     query = self.path.split('?')[-1]
                     params = {k: v for k, v in (item.split('=') for item in query.split('&'))}
                     code = params.get('code')
-                    aud = parent.aud_entry.get().strip()
-                    # Safely update UI using schedule_ui_update
-                    parent.schedule_ui_update(f"Received code: {code}\n")
+                    aud = params.get('aud')
+                    print("aud:", aud)
+                    parent.response_text.insert(tk.END, f"Received code: {code}\n")
                     if parent.log_oidc_process.get():
-                        parent.schedule_ui_update(f"Received authorization code: {code}\n", log=True)
+                        parent.oidc_log_text.insert(tk.END, f"Received authorization code: {code}\n")
                     parent.exchange_code_for_tokens(code, aud)
                     self.send_response(200)
                     self.send_header('Content-type', 'text/html')
                     self.end_headers()
                     self.wfile.write(b"Authorization code received. You can close this window.")
+
                 else:
                     self.send_error(404, "Not Found")
 
@@ -2508,14 +2521,11 @@ class OIDCDebugger:
                     self.end_headers()
                     self.wfile.write(b"Server shutdown initiated.")
                 if parent.log_oidc_process.get():
-                        parent.schedule_ui_update("Server shutdown initiated.\n", log=True)
-        return HTTPSHandler  
-  
-    def shutdown_https_server():
-        global https_server
-        https_server.shutdown()
+                    parent.oidc_log_text.insert(tk.END, "Server shutdown initiated.\n")
+        return HTTPSHandler   
 
     def exchange_code_for_tokens(self, code, aud):
+        self.log_message(f"Exchanging code for tokens: {code}")
         print(f"Exchange Code for Tokens: {code}")
         self.write_to_response_text( f"Exchange Code for Tokens: {code}\n")
         if not self.is_exchange_code_for_tokens.get():
@@ -2627,6 +2637,7 @@ class OIDCDebugger:
 
 
     def display_tokens(self, tokens):
+        self.log_message(f"Displaying tokens: {tokens}")
         print(f"Display Tokens: {tokens}")
         self.write_to_response_text( f"Display Tokens:\n")
         try:
@@ -2663,6 +2674,7 @@ class OIDCDebugger:
 
 
     def decode_jwt(self, token):
+        self.log_message(f"Decoding JWT: {token}")
         print(f"Decoding JWT: {token}")
         try:
             header, payload, signature = token.split('.')
@@ -2686,6 +2698,7 @@ class OIDCDebugger:
 
 
     def userinfo_query(self, token, token_type):
+        self.log_message(f"Userinfo query: {token_type} is {token}")
         #if not self.is_userinfo_query.get():
          #       self.write_to_response_text( "Skipping Userinfo Query, it is disabled.\n")
           #      return
@@ -2725,6 +2738,7 @@ class OIDCDebugger:
 
 
     def introspect_token(self, token, token_type):
+        self.log_message(f"Introspecting token: {token_type} is {token}")
         try:
             data = {
                 "token": token,
