@@ -1455,9 +1455,6 @@ class OIDCDebugger:
         self.aud_entry = ttk.Entry(self.frame, width=50)
         self.aud_entry.grid(row=5, column=1, padx=5, pady=2, sticky="ew")
 
-        #self.use_pkce = tk.BooleanVar()
-        #ttk.Checkbutton(self.frame, text="Use PKCE", variable=self.use_pkce).grid(row=6, column=1, padx=5, pady=5, sticky="w")
-        
         self.generate_request_btn = ttk.Button(self.frame, text="Generate Auth Request", command=self.generate_auth_request)
         self.generate_request_btn.grid(row=9, column=1, padx=5, pady=5, sticky="w")
 
