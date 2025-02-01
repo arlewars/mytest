@@ -1264,7 +1264,6 @@ def open_oauth_window(theme):
 
     well_known_entry = create_labeled_entry(frame, "OAuth Well-Known Endpoint:", 1, 0)
     well_known_entry.insert(0,"https://sso.fed.dev.aws.swacorp.com/.well-known/openid-configuration")
-    create_well_known_dropdown(frame, well_known_entry)
     token_endpoint_entry = create_labeled_entry(frame, "Token Endpoint:", 3, 0)
     client_id_entry = create_labeled_entry(frame, "Client ID:", 5, 0)
     client_secret_entry = create_labeled_entry(frame, "Client Secret:", 7, 0)
@@ -1427,8 +1426,8 @@ class OIDCDebugger:
         # Labels and entries
         self.endpoint_label = ttk.Label(self.frame, text="Select or enter well-known endpoint URL:")
         self.endpoint_label.grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        self.endpoint_entry = create_labeled_entry(self.frame, "Well-Known Endpoint:", 0, 1)
-        create_well_known_dropdown(self.frame, self.endpoint_entry)
+        self.endpoint_entry = ttk.Entry(self.frame, width=50)
+        self.endpoint_entry.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
         
         self.server_name_label = ttk.Label(self.frame, text="Enter server name for redirect URL(optional):")
         self.server_name_label.grid(row=1, column=0, padx=5, pady=5, sticky="w")
@@ -1526,8 +1525,32 @@ class OIDCDebugger:
         if self.oidc_log_window is None or not self.oidc_log_window.winfo_exists():
             self.oidc_log_window = tk.Toplevel(self.window)
             self.oidc_log_window.title("OIDC Process Log")
-            self.oidc_log_text = tk.Text(self.oidc_log_window, wrap=tk.WORD, height=20, width=80)
-            self.oidc_log_text.pack(fill=tk.BOTH, expand=True)
+            self.oidc_log_window.geometry("600x400")
+
+            # Create a frame to hold the text widget and scrollbars
+            frame = ttk.Frame(self.oidc_log_window)
+            frame.pack(fill=tk.BOTH, expand=True)
+
+            # Create vertical and horizontal scrollbars
+            v_scrollbar = ttk.Scrollbar(frame, orient=tk.VERTICAL)
+            h_scrollbar = ttk.Scrollbar(frame, orient=tk.HORIZONTAL)
+
+            # Create the text widget
+            self.oidc_log_text = tk.Text(frame, wrap=tk.NONE, yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+            self.oidc_log_text.grid(row=0, column=0, sticky="nsew")
+
+            # Configure the scrollbars
+            v_scrollbar.config(command=self.oidc_log_text.yview)
+            h_scrollbar.config(command=self.oidc_log_text.xview)
+
+            # Pack the scrollbars
+            v_scrollbar.grid(row=0, column=1, sticky="ns")
+            h_scrollbar.grid(row=1, column=0, sticky="ew")
+
+            # Configure the frame to expand with the window
+            frame.grid_rowconfigure(0, weight=1)
+            frame.grid_columnconfigure(0, weight=1)            
+
 
     def update_endpoint_entry(self, event):
         selected_value = self.well_known_var.get()
@@ -3332,30 +3355,6 @@ class ActiveDirectoryDebugger:
 
             if debug and hasattr(self, 'debug_text'):
                 debug_message = f"LDAP Response: {conn.entries}\n"
-            log_error("User not found.",user_to_search)
-            return
-
-        user_entry = conn.entries[0]
-
-        self.result_text.delete(1.0, tk.END)
-        self.result_text.insert(tk.END, f"User {user_to_search} attributes:\n")
-        for attribute in user_entry.entry_attributes:
-            value = user_entry[attribute]
-            if isinstance(value, bytes):
-                value = value.decode('utf-8')
-            self.result_text.insert(tk.END, f"{attribute}: {value}\n")
-
-        if self.user2_search_entry.winfo_ismapped():
-            user2_to_search = self.user2_search_entry.get()
-            search_filter = f'(|(sAMAccountName={user2_to_search})(cn={user2_to_search})(uid={user2_to_search}))'
-            if debug and hasattr(self, 'debug_text'):
-                debug_message = f"LDAP Search: Base={search_base}, Filter={search_filter}\n"
-                self.debug_text.insert(tk.END, debug_message)
-
-            conn.search(search_base, search_filter, attributes=ldap3.ALL_ATTRIBUTES)
-
-            if debug and hasattr(self, 'debug_text'):
-                debug_message = f"LDAP Response: {conn.entries}\n"
                 self.debug_text.insert(tk.END, debug_message)
 
             if not conn.entries:
@@ -3616,13 +3615,13 @@ def main():
     ttk.Button(sidebar, text="ActiveDirectoryDebugger", command=lambda: ActiveDirectoryDebugger(theme_var.get())).grid(row=14, column=0, padx=5, pady=2)
 
     # Add frames for HTTPRequest and NSLookup
-    nslookup_frame = ttk.Frame(scrollable_frame, padding="5")
-    nslookup_frame.grid(row=0, column=0, sticky="nsew")
-    NSLookup(nslookup_frame, theme_var.get())
-
     http_request_frame = ttk.Frame(scrollable_frame, padding="5")
-    http_request_frame.grid(row=1, column=0, sticky="nsew")
+    http_request_frame.grid(row=0, column=0, sticky="nsew")
     HTTPRequest(http_request_frame, theme_var.get())
+
+    nslookup_frame = ttk.Frame(scrollable_frame, padding="5")
+    nslookup_frame.grid(row=1, column=0, sticky="nsew")
+    NSLookup(nslookup_frame, theme_var.get())
 
     for widget in scrollable_frame.winfo_children():
         widget.grid_configure(sticky="nsew")
