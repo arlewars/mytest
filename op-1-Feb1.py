@@ -1426,38 +1426,42 @@ class OIDCDebugger:
 
         # Labels and entries
         self.endpoint_label = ttk.Label(self.frame, text="Select or enter well-known endpoint URL:")
-        self.endpoint_label.grid(row=0, column=0, padx=5, pady=2, sticky="w")
+        self.endpoint_label.grid(row=0, column=0, padx=5, pady=5, sticky="w")
         self.endpoint_entry = create_labeled_entry(self.frame, "Well-Known Endpoint:", 0, 1)
         create_well_known_dropdown(self.frame, self.endpoint_entry)
         
         self.server_name_label = ttk.Label(self.frame, text="Enter server name for redirect URL(optional):")
-        self.server_name_label.grid(row=1, column=0, padx=5, pady=2, sticky="w")
+        self.server_name_label.grid(row=1, column=0, padx=5, pady=5, sticky="w")
         self.server_name_entry = ttk.Entry(self.frame, width=50)
-        self.server_name_entry.grid(row=1, column=1, padx=5, pady=2, sticky="ew")
+        self.server_name_entry.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
         
         self.client_id_label = ttk.Label(self.frame, text="Client ID:")
-        self.client_id_label.grid(row=2, column=0, padx=5, pady=2, sticky="w")
+        self.client_id_label.grid(row=2, column=0, padx=5, pady=5, sticky="w")
         self.client_id_entry = ttk.Entry(self.frame, width=50)
-        self.client_id_entry.grid(row=2, column=1, padx=5, pady=2, sticky="ew")
+        self.client_id_entry.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
         
         self.client_secret_label = ttk.Label(self.frame, text="Client Secret:")
-        self.client_secret_label.grid(row=3, column=0, padx=5, pady=2, sticky="w")
+        self.client_secret_label.grid(row=3, column=0, padx=5, pady=5, sticky="w")
         self.client_secret_entry = ttk.Entry(self.frame, width=50, show="*")
-        self.client_secret_entry.grid(row=3, column=1, padx=5, pady=2, sticky="ew")
+        self.client_secret_entry.grid(row=3, column=1, padx=5, pady=5, sticky="ew")
         
         self.scope_label = ttk.Label(self.frame, text="Enter Scopes (e.g., openid profile email):")
-        self.scope_label.grid(row=4, column=0, padx=5, pady=2, sticky="w")
+        self.scope_label.grid(row=4, column=0, padx=5, pady=5, sticky="w")
         self.scope_entry = ttk.Entry(self.frame, width=50)
-        self.scope_entry.grid(row=4, column=1, padx=5, pady=2, sticky="ew")
+        self.scope_entry.grid(row=4, column=1, padx=5, pady=5, sticky="ew")
 
         self.aud_label = ttk.Label(self.frame, text="Audience (aud):")
-        self.aud_label.grid(row=5, column=0, padx=5, pady=2, sticky="w")
+        self.aud_label.grid(row=5, column=0, padx=5, pady=5, sticky="w")
         self.aud_entry = ttk.Entry(self.frame, width=50)
-        self.aud_entry.grid(row=5, column=1, padx=5, pady=2, sticky="ew")
+        self.aud_entry.grid(row=5, column=1, padx=5, pady=5, sticky="ew")
 
-        #self.use_pkce = tk.BooleanVar()
-        #ttk.Checkbutton(self.frame, text="Use PKCE", variable=self.use_pkce).grid(row=6, column=1, padx=5, pady=5, sticky="w")
-        
+        self.use_pkce = tk.BooleanVar()
+        ttk.Checkbutton(self.frame, text="Use PKCE", variable=self.use_pkce).grid(row=6, column=1, padx=5, pady=5, sticky="w")
+
+        self.auth_method = tk.StringVar(value="client_secret_post")
+        ttk.Radiobutton(self.frame, text="Client Secret Post", variable=self.auth_method, value="client_secret_post").grid(row=7, column=1, padx=1, pady=1, sticky="w")
+        ttk.Radiobutton(self.frame, text="Client Secret Basic", variable=self.auth_method, value="client_secret_basic").grid(row=8, column=1, padx=1, pady=1, sticky="w")
+
         self.generate_request_btn = ttk.Button(self.frame, text="Generate Auth Request", command=self.generate_auth_request)
         self.generate_request_btn.grid(row=9, column=1, padx=5, pady=5, sticky="w")
 
@@ -1513,38 +1517,10 @@ class OIDCDebugger:
         self.window.update_idletasks() 
         #self.window.after(100, self.after_ui_setup)
         
-        # Options frame moved here
-        self.options_frame = ttk.LabelFrame(self.response_table_frame, text="Options", padding="5")
-        self.options_frame.grid(row=2, column=0, padx=5, pady=5, sticky="ew")
-
-        self.oauth_checkbox_var = tk.BooleanVar(value=False)
-        self.oauth_checkbox = ttk.Checkbutton(self.options_frame, text="OAUTH Only", variable=self.oauth_checkbox_var, command=self.toggle_options)
-        self.oauth_checkbox.grid(row=0, column=0, padx=2, pady=2, sticky="w")
-
-        self.use_pkce = tk.BooleanVar(value=True)
-        self.use_pkce_checkbutton = ttk.Checkbutton(self.options_frame, text="Use PKCE", variable=self.use_pkce)
-        self.use_pkce_checkbutton.grid(row=1, column=0, padx=2, pady=2, sticky="w")
-
-        separator = ttk.Separator(self.options_frame, orient='vertical')
-        separator.grid(row=0, column=1, rowspan=3, padx=2, pady=2, sticky="ns")
-
-        self.auth_method = tk.StringVar(value="client_secret_post")
-        self.client_secret_post_radiobutton = ttk.Radiobutton(self.options_frame, text="Client Secret Post", variable=self.auth_method, value="client_secret_post")
-        self.client_secret_post_radiobutton.grid(row=0, column=2, padx=2, pady=2, sticky="w")
-        self.client_secret_basic_radiobutton = ttk.Radiobutton(self.options_frame, text="Client Secret Basic", variable=self.auth_method, value="client_secret_basic")
-        self.client_secret_basic_radiobutton.grid(row=1, column=2, padx=2, pady=2, sticky="w")
-
-        self.start_is_https_server = tk.BooleanVar(value=True)
-        self.start_is_https_server_checkbox = ttk.Checkbutton(self.options_frame, text="Web Server", variable=self.start_is_https_server)
-        self.start_is_https_server_checkbox.grid(row=2, column=2, padx=2, pady=2, sticky="w")
-
-        self.is_exchange_code_for_tokens = tk.BooleanVar(value=True)
-        self.exchange_code_for_tokens_checkbox = ttk.Checkbutton(self.options_frame, text="Exchange Code\nfor Tokens", variable=self.is_exchange_code_for_tokens)
-        self.exchange_code_for_tokens_checkbox.grid(row=3, column=2, padx=2, pady=2, sticky="w")
-
-        self.is_userinfo_query = tk.BooleanVar(value=True)
-        self.user_info_query_checkbox = ttk.Checkbutton(self.options_frame, text="User Info Query", variable=self.is_userinfo_query)
-        self.user_info_query_checkbox.grid(row=2, column=0, padx=2, pady=2, sticky="w")
+   # def after_ui_setup(self):
+        # Start any initial network operations here, like nslookup or HTTP requests
+   #     self.generate_self_signed_cert()
+   #     self.start_https_server()
 
     def open_oidc_log_window(self):
         if self.oidc_log_window is None or not self.oidc_log_window.winfo_exists():
@@ -1552,28 +1528,6 @@ class OIDCDebugger:
             self.oidc_log_window.title("OIDC Process Log")
             self.oidc_log_text = tk.Text(self.oidc_log_window, wrap=tk.WORD, height=20, width=80)
             self.oidc_log_text.pack(fill=tk.BOTH, expand=True)
-
-    def toggle_options(self): 
-        if self.oauth_checkbox_var.get():
-            self.use_pkce.set(value=False)
-            self.start_is_https_server.set(value=False)
-            self.is_exchange_code_for_tokens.set(value=False)
-            self.is_userinfo_query.set(value=False)
-            state = "disabled"
-        else:
-            self.use_pkce.set(value=True)
-            self.start_is_https_server.set(value=True)
-            self.is_exchange_code_for_tokens.set(value=True)
-            self.is_userinfo_query.set(value=True)
-            state = "normal"
-        
-        self.use_pkce_checkbutton.configure(state=state) 
-        self.client_secret_post_radiobutton.configure(state=state)
-        self.client_secret_basic_radiobutton.configure(state=state)
-        self.start_is_https_server_checkbox.configure(state=state)
-        self.exchange_code_for_tokens_checkbox.configure(state=state)
-        self.user_info_query_checkbox.configure(state=state)
-        self.submit_btn.configure(state=state)
 
     def update_endpoint_entry(self, event):
         selected_value = self.well_known_var.get()
