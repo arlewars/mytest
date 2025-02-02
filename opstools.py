@@ -1469,6 +1469,7 @@ class OIDCDebugger:
 
         separator = ttk.Separator(self.options_frame, orient='vertical')
         separator.grid(row=0, column=1, rowspan=3, padx=0, pady=0, sticky="ns")
+
             
         self.auth_method = tk.StringVar(value="client_secret_post")
         self.client_secret_post_radiobutton = ttk.Radiobutton(self.options_frame, text="Client Secret Post", variable=self.auth_method, value="client_secret_post")
@@ -1487,6 +1488,13 @@ class OIDCDebugger:
         self.is_userinfo_query = tk.BooleanVar(value=True)
         self.user_info_query_checkbox = ttk.Checkbutton(self.options_frame, text="User Info Query", variable=self.is_userinfo_query)
         self.user_info_query_checkbox.grid(row=2, column=0, padx=0, pady=0, sticky="w")
+        separator2 = ttk.Separator(self.options_frame, orient='vertical')
+        separator2.grid(row=0, column=2, rowspan=3, padx=0, pady=0, sticky="ns")
+        self.clear_text_checkbox = tk.BooleanVar()
+        ttk.Checkbutton(self.options_frame, text="Clear response text\n before next request", variable=self.clear_text_checkbox).grid(row=1, column=4, padx=0, pady=2, sticky="e")
+        self.log_oidc_process = tk.BooleanVar()
+        ttk.Checkbutton(self.options_frame, text="Log OIDC process\n in separate window", variable=self.log_oidc_process).grid(row=0, column=4, padx=0, pady=2, sticky="e")
+
 
         self.generate_request_btn = ttk.Button(self.frame, text="Generate Auth Request", command=self.generate_auth_request)
         self.generate_request_btn.grid(row=7, column=1, padx=0, pady=5, sticky="w")
@@ -1499,11 +1507,6 @@ class OIDCDebugger:
 
         self.submit_btn = ttk.Button(self.frame, text="Submit Auth Request", command=self.submit_auth_request)
         self.submit_btn.grid(row=9, column=1, padx=0, pady=5, sticky="w")
-
-        self.clear_text_checkbox = tk.BooleanVar()
-        ttk.Checkbutton(self.frame, text="Clear response text\n before next request", variable=self.clear_text_checkbox).grid(row=10, column=0, padx=0, pady=5, sticky="w")
-        self.log_oidc_process = tk.BooleanVar()
-        ttk.Checkbutton(self.frame, text="Log OIDC process\n in separate window", variable=self.log_oidc_process).grid(row=10, column=1, padx=0, pady=5, sticky="w")
         
         self.response_table_frame = ttk.Frame(self.frame)
         self.response_table_frame.grid(row=0, column=2, rowspan=9, padx=5, pady=5, sticky="nsew")
