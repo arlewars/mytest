@@ -1419,68 +1419,97 @@ class OIDCDebugger:
         style.theme_use(self.theme)
         theme_colors = NORD_STYLES.get(self.theme, NORD_STYLES["standard"])
         self.window.configure(background=theme_colors["background"])
-    
+        
     def setup_ui(self):
         self.frame = ttk.Frame(self.window, padding="10")
         self.frame.pack(fill=tk.BOTH, expand=True)
 
         # Labels and entries
         self.endpoint_label = ttk.Label(self.frame, text="Select or enter well-known endpoint URL:")
-        self.endpoint_label.grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        self.endpoint_label.grid(row=0, column=0, padx=0, pady=0, sticky="w")
         self.endpoint_entry = create_labeled_entry(self.frame, "Well-Known Endpoint:", 0, 1)
         create_well_known_dropdown(self.frame, self.endpoint_entry)
         
         self.server_name_label = ttk.Label(self.frame, text="Enter server name for redirect URL(optional):")
-        self.server_name_label.grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        self.server_name_label.grid(row=1, column=0, padx=0, pady=0, sticky="w")
         self.server_name_entry = ttk.Entry(self.frame, width=50)
-        self.server_name_entry.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
+        self.server_name_entry.grid(row=1, column=1, padx=0, pady=0, sticky="ew")
         
         self.client_id_label = ttk.Label(self.frame, text="Client ID:")
-        self.client_id_label.grid(row=2, column=0, padx=5, pady=5, sticky="w")
+        self.client_id_label.grid(row=2, column=0, padx=0, pady=0, sticky="w")
         self.client_id_entry = ttk.Entry(self.frame, width=50)
-        self.client_id_entry.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
+        self.client_id_entry.grid(row=2, column=1, padx=0, pady=0, sticky="ew")
         
         self.client_secret_label = ttk.Label(self.frame, text="Client Secret:")
-        self.client_secret_label.grid(row=3, column=0, padx=5, pady=5, sticky="w")
+        self.client_secret_label.grid(row=3, column=0, padx=0, pady=0, sticky="w")
         self.client_secret_entry = ttk.Entry(self.frame, width=50, show="*")
-        self.client_secret_entry.grid(row=3, column=1, padx=5, pady=5, sticky="ew")
+        self.client_secret_entry.grid(row=3, column=1, padx=0, pady=0, sticky="ew")
         
         self.scope_label = ttk.Label(self.frame, text="Enter Scopes (e.g., openid profile email):")
-        self.scope_label.grid(row=4, column=0, padx=5, pady=5, sticky="w")
+        self.scope_label.grid(row=4, column=0, padx=0, pady=0, sticky="w")
         self.scope_entry = ttk.Entry(self.frame, width=50)
-        self.scope_entry.grid(row=4, column=1, padx=5, pady=5, sticky="ew")
+        self.scope_entry.grid(row=4, column=1, padx=0, pady=0, sticky="ew")
 
         self.aud_label = ttk.Label(self.frame, text="Audience (aud):")
-        self.aud_label.grid(row=5, column=0, padx=5, pady=5, sticky="w")
+        self.aud_label.grid(row=5, column=0, padx=0, pady=0, sticky="w")
         self.aud_entry = ttk.Entry(self.frame, width=50)
-        self.aud_entry.grid(row=5, column=1, padx=5, pady=5, sticky="ew")
+        self.aud_entry.grid(row=5, column=1, padx=0, pady=0, sticky="ew")
 
-        self.use_pkce = tk.BooleanVar()
-        ttk.Checkbutton(self.frame, text="Use PKCE", variable=self.use_pkce).grid(row=6, column=1, padx=5, pady=5, sticky="w")
+        # Options frame moved here
+        self.options_frame = ttk.LabelFrame(self.frame, text="Options", padding="5")
+        self.options_frame.grid(row=6, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
+
+        self.oauth_checkbox_var = tk.BooleanVar(value=False)
+        self.oauth_checkbox = ttk.Checkbutton(self.options_frame, text="OAUTH Only", variable=self.oauth_checkbox_var, command=self.toggle_options)
+        self.oauth_checkbox.grid(row=0, column=0, padx=0, pady=0, sticky="w")
+
+        self.use_pkce = tk.BooleanVar(value=True)
+        self.use_pkce_checkbutton = ttk.Checkbutton(self.options_frame, text="Use PKCE", variable=self.use_pkce)
+        self.use_pkce_checkbutton.grid(row=1, column=0, padx=0, pady=0, sticky="w")
+
+        separator = ttk.Separator(self.options_frame, orient='vertical')
+        separator.grid(row=0, column=1, rowspan=3, padx=0, pady=0, sticky="ns")
 
         self.auth_method = tk.StringVar(value="client_secret_post")
-        ttk.Radiobutton(self.frame, text="Client Secret Post", variable=self.auth_method, value="client_secret_post").grid(row=7, column=1, padx=1, pady=1, sticky="w")
-        ttk.Radiobutton(self.frame, text="Client Secret Basic", variable=self.auth_method, value="client_secret_basic").grid(row=8, column=1, padx=1, pady=1, sticky="w")
+        self.client_secret_post_radiobutton = ttk.Radiobutton(self.options_frame, text="Client Secret Post", variable=self.auth_method, value="client_secret_post")
+        self.client_secret_post_radiobutton.grid(row=0, column=2, padx=0, pady=0, sticky="w")
+        self.client_secret_basic_radiobutton = ttk.Radiobutton(self.options_frame, text="Client Secret Basic", variable=self.auth_method, value="client_secret_basic")
+        self.client_secret_basic_radiobutton.grid(row=1, column=2, padx=0, pady=0, sticky="w")
 
-        self.generate_request_btn = ttk.Button(self.frame, text="Generate Auth Request", command=self.generate_auth_request)
-        self.generate_request_btn.grid(row=9, column=1, padx=5, pady=5, sticky="w")
+        self.start_is_https_server = tk.BooleanVar(value=True)
+        self.start_is_https_server_checkbox = ttk.Checkbutton(self.options_frame, text="Web Server", variable=self.start_is_https_server)
+        self.start_is_https_server_checkbox.grid(row=2, column=2, padx=0, pady=0, sticky="w")
 
-        self.auth_url_text = tk.Text(self.frame, height=5, width=80)
-        self.auth_url_text.grid(row=10, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
-        auth_url_scrollbar = ttk.Scrollbar(self.frame, orient="vertical", command=self.auth_url_text.yview)
-        self.auth_url_text.configure(yscrollcommand=auth_url_scrollbar.set)
-        auth_url_scrollbar.grid(row=10, column=2, sticky="ns")
+        self.is_exchange_code_for_tokens = tk.BooleanVar(value=True)
+        self.exchange_code_for_tokens_checkbox = ttk.Checkbutton(self.options_frame, text="Exchange Code\nfor Tokens", variable=self.is_exchange_code_for_tokens)
+        self.exchange_code_for_tokens_checkbox.grid(row=3, column=2, padx=0, pady=0, sticky="w")
 
-        self.submit_btn = ttk.Button(self.frame, text="Submit Auth Request", command=self.submit_auth_request)
-        self.submit_btn.grid(row=11, column=1, padx=5, pady=5, sticky="w")
+        self.is_userinfo_query = tk.BooleanVar(value=True)
+        self.user_info_query_checkbox = ttk.Checkbutton(self.options_frame, text="User Info Query", variable=self.is_userinfo_query)
+        self.user_info_query_checkbox.grid(row=2, column=0, padx=0, pady=0, sticky="w")
+
+        separator2 = ttk.Separator(self.options_frame, orient='vertical')
+        separator2.grid(row=0, column=3, rowspan=3, padx=0, pady=0, sticky="ns")
 
         self.clear_text_checkbox = tk.BooleanVar()
-        ttk.Checkbutton(self.frame, text="Clear response text\n before next request", variable=self.clear_text_checkbox).grid(row=12, column=1, padx=5, pady=5, sticky="w")
+        ttk.Checkbutton(self.options_frame, text="Clear response text\n before next request", variable=self.clear_text_checkbox).grid(row=1, column=4, padx=0, pady=2, sticky="e")
         self.log_oidc_process = tk.BooleanVar()
-        ttk.Checkbutton(self.frame, text="Log OIDC process\n in separate window", variable=self.log_oidc_process).grid(row=13, column=1, padx=5, pady=5, sticky="w")
+        ttk.Checkbutton(self.options_frame, text="Log OIDC process\n in separate window", variable=self.log_oidc_process).grid(row=0, column=4, padx=0, pady=2, sticky="e")
+
+        self.generate_request_btn = ttk.Button(self.frame, text="Generate Auth Request", command=self.generate_auth_request)
+        self.generate_request_btn.grid(row=7, column=1, padx=0, pady=5, sticky="w")
+
+        self.auth_url_text = tk.Text(self.frame, height=5, width=80)
+        self.auth_url_text.grid(row=8, column=0, columnspan=2, padx=0, pady=5, sticky="ew")
+        auth_url_scrollbar = ttk.Scrollbar(self.frame, orient="vertical", command=self.auth_url_text.yview)
+        self.auth_url_text.configure(yscrollcommand=auth_url_scrollbar.set)
+        auth_url_scrollbar.grid(row=8, column=2, sticky="ns")
+
+        self.submit_btn = ttk.Button(self.frame, text="Submit Auth Request", command=self.submit_auth_request)
+        self.submit_btn.grid(row=9, column=1, padx=0, pady=5, sticky="w")
         
         self.response_table_frame = ttk.Frame(self.frame)
-        self.response_table_frame.grid(row=0, column=3, rowspan=9, padx=5, pady=5, sticky="nsew")
+        self.response_table_frame.grid(row=0, column=2, rowspan=9, padx=5, pady=5, sticky="nsew")
 
         table_scrollbar_y = ttk.Scrollbar(self.response_table_frame, orient="vertical")
         table_scrollbar_x = ttk.Scrollbar(self.response_table_frame, orient="horizontal")
@@ -1501,26 +1530,16 @@ class OIDCDebugger:
         table_scrollbar_x.grid(row=1, column=1, sticky="ew")
 
         self.response_text = tk.Text(self.frame, height=30, width=100)
-        self.response_text.grid(row=14, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
-        response_text_scrollbar = ttk.Scrollbar(self.frame, orient="vertical", command=self.response_text.yview)
-        self.response_text.configure(yscrollcommand=response_text_scrollbar.set)
-        response_text_scrollbar.grid(row=14, column=2, sticky="ns")
+        self.response_text.grid(row=11, column=0, columnspan=2, padx=0, pady=5, sticky="ew")
 
         self.certificate_btn = ttk.Button(self.frame, text="Show Certificate", command=self.show_certificate)
-        self.certificate_btn.grid(row=15, column=1, padx=5, pady=5, sticky="w")
+        self.certificate_btn.grid(row=12, column=1, padx=0, pady=5, sticky="w")
 
         self.replace_certificate_btn = ttk.Button(self.frame, text="Replace Certificate", command=self.replace_certificate)
-        self.replace_certificate_btn.grid(row=16, column=1, padx=5, pady=5, sticky="w")
+        self.replace_certificate_btn.grid(row=13, column=1, padx=0, pady=5, sticky="w")
 
         self.oidc_log_window = None
-        #Draw the screen and start network operations after UI is fully rendered 
         self.window.update_idletasks() 
-        #self.window.after(100, self.after_ui_setup)
-        
-   # def after_ui_setup(self):
-        # Start any initial network operations here, like nslookup or HTTP requests
-   #     self.generate_self_signed_cert()
-   #     self.start_https_server()
 
     def open_oidc_log_window(self):
         if self.oidc_log_window is None or not self.oidc_log_window.winfo_exists():
@@ -1528,6 +1547,28 @@ class OIDCDebugger:
             self.oidc_log_window.title("OIDC Process Log")
             self.oidc_log_text = tk.Text(self.oidc_log_window, wrap=tk.WORD, height=20, width=80)
             self.oidc_log_text.pack(fill=tk.BOTH, expand=True)
+
+    def toggle_options(self): 
+        if self.oauth_checkbox_var.get():
+            self.use_pkce.set(value=False)
+            self.start_is_https_server.set(value=False)
+            self.is_exchange_code_for_tokens.set(value=False)
+            self.is_userinfo_query.set(value=False)
+            state = "disabled"
+        else:
+            self.use_pkce.set(value=True)
+            self.start_is_https_server.set(value=True)
+            self.is_exchange_code_for_tokens.set(value=True)
+            self.is_userinfo_query.set(value=True)
+            state = "normal"
+        
+        self.use_pkce_checkbutton.configure(state=state) 
+        self.client_secret_post_radiobutton.configure(state=state)
+        self.client_secret_basic_radiobutton.configure(state=state)
+        self.start_is_https_server_checkbox.configure(state=state)
+        self.exchange_code_for_tokens_checkbox.configure(state=state)
+        self.user_info_query_checkbox.configure(state=state)
+        self.submit_btn.configure(state=state)
 
     def update_endpoint_entry(self, event):
         selected_value = self.well_known_var.get()
@@ -3638,7 +3679,7 @@ def main():
 
     def display_message():
         try:
-            motd = "4oCcV2UgaGF2ZSBhIHN0cmF0ZWdpYyBwbGFuIOKAlCBpdOKAmXMgY2FsbGVkIGRvaW5nIHRoaW5ncy7igJ0K4oCcWW91ciBwZW9wbGUgY29tZSBmaXJzdCwgYW5kIGlmIHlvdSB0cmVhdCB0aGVtIHJpZ2h0LCB0aGV54oCZbCB0cmVhdCB0aGVtIGN1c3RvbWVycyByaWdodC7igJ0K4oCcVGhlIGVzc2VudGlhbCBkaWZmZXJlbmNlIGluIHNlcnZpY2UgaXMgbm90IG1hY2hpbmVzIG9yIOKAmHRoaW5ncy7igJkgVGhlIGVzc2VudGlhbCBkaWZmZXJlbmNlIGlzIG1pbmRzLCBoZWFydHMsIHNwaXJpdHMsIGFuZCBzb3Vscy7igJ0K4oCcWW91IGhhdmUgdG8gdHJlYXQgeW91ciBlbXBsb3llZXMgbGlrZSBjdXN0b21lcnMu4oCdCuKAnFlvdSBkb27igJl0IGhpcmUgZm9yIHNraWxscywgeW91IGhpcmUgZm9yIGF0dGl0dWRlLiBZb3UgY2FuIGFsd2F5cyB0ZWFjaCBza2lsbHMu4oCdCuKAnEEgY29tcGFueSBpcyBzdHJvbmdlciBpZiBpdCBpcyBib3VuZCBieSBsb3ZlIHJhdGhlciB0aGFuIGJ5IGZlYXIu4oCdCuKAnFRoaW5rIHNtYWxsIGFuZCBhY3Qgc21hbGwsIGFuZCB3ZeKAmWxsIGdldCBiaWdnZXIuIFRoaW5rIGJpZyBhbmQgYWN0IGJpZywgYW5kIHdl4oCZbGwgZ2V0IHNtYWxsZXIu4oCdCuKAnElmIHlvdeKAmXJlIGNyYXp5IGVub3VnaCB0byBkbyB3aGF0IHlvdSBsb3ZlIGZvciBhIGxpdmluZywgdGhlbiB5b3XigJlyZSBib3VuZCB0byBjcmVhdGUgYSBsaWZlIHRoYXQgbWF0dGVycy7igJ0K4oCcSSB0ZWxsIG15IGVtcGxveWVlcyB0aGF0IHdl4oCZcmUgaW4gdGhlIHNlcnZpY2UgYnVzaW5lc3MsIGFuZCBpdOKAmXMgaW5jaWRlbnRhbCB0aGF0IHdlIGZseSBhaXJwbGFuZXMu4oCdCuKAnEp1c3QgYmVjYXVzZSB5b3UgZG9u4oCZdCBhbm5vdW5jZSB5b3VyIHBsYW4gZG9lc27igJl0IG1lYW4geW91IGRvbuKAmXQgaGF2ZSBvbmUu4oCdCuKAnEkgZm9yZ2l2ZSBhbGwgcGVyc29uYWwgd2Vha25lc3NlcyBleGNlcHQgZWdvbWFuaWEgYW5kIHByZXRlbnNpb24u4oCdCuKAnElmIHlvdSBkb27igJl0IHRyZWF0IHlvdXIgb3duIHBlb3BsZSB3ZWxsLCB0aGV5IHdvbuKAmXQgdHJlYXQgb3RoZXIgcGVvcGxlIHdlbGwu4oCdCuKAnFRoZSBidXNpbmVzcyBvZiBidXNpbmVzcyBpcyBwZW9wbGUu4oCdCuKAnElmIHlvdSBjcmVhdGUgYW4gZW52aXJvbm1lbnQgd2hlcmUgdGhlIHBlb3BsZSB0cnVseSBwYXJ0aWNpcGF0ZSwgeW91IGRvbuKAmXQgbmVlZCBjb250cm9sLiBUaGV5IGtub3cgd2hhdCBuZWVkcyB0byBiZSBkb25lIGFuZCB0aGV5IGRvIGl0LuKAnQrigJxMZWFkaW5nIGFuIG9yZ2FuaXphdGlvbiBpcyBhcyBtdWNoIGFib3V0IHNvdWwgYXMgaXQgaXMgYWJvdXQgc3lzdGVtcy4gRWZmZWN0aXZlIGxlYWRlcnNoaXAgZmluZHMgaXRzIHNvdXJjZSBpbiB1bmRlcnN0YW5kaW5nLuKAnQrigJxJIGxlYXJuZWQgaXQgYnkgZG9pbmcgaXQsIGFuZCBJIHdhcyBzY2FyZWQgdG8gZGVhdGgu4oCdCuKAnEkgdGhpbmsgbXkgZ3JlYXRlc3QgbW9tZW50IGluIGJ1c2luZXNzIHdhcyB3aGVuIHRoZSBmaXJzdCBTb3V0aHdlc3QgYWlycGxhbmUgYXJyaXZlZCBhZnRlciBmb3VyIHllYXJzIG9mIGxpdGlnYXRpb24gYW5kIEkgd2Fsa2VkIHVwIHRvIGl0IGFuZCBJIGtpc3NlZCB0aGF0IGJhYnkgb24gdGhlIGxpcHMgYW5kIEkgY3JpZWQu4oCdCiJXaGVuIGl0IGNvbWVzIHRvIGdldHRpbmcgdGhpbmdzIGRvbmUsIHdlIG5lZWQgZmV3ZXIgYXJjaGl0ZWN0cyBhbmQgbW9yZSBicmlja2xheWVycy4iCg=="
+            motd = "4oCcV2UgaGF2ZSBhIHN0cmF0ZWdpYyBwbGFuIOKAlCBpdOKAmXMgY2FsbGVkIGRvaW5nIHRoaW5ncy7igJ0K4oCcWW91ciBwZW9wbGUgY29tZSBmaXJzdCwgYW5kIGlmIHlvdSB0cmVhdCB0aGVtIHJpZ2h0LCB0aGV54oCZbCB0cmVhdCB0aGVtIGN1c3RvbWVycyByaWdodC7igJ0K4oCcVGhlIGVzc2VudGlhbCBkaWZmZXJlbmNlIGluIHNlcnZpY2UgaXMgbm90IG1hY2hpbmVzIG9yIOKAmHRoaW5ncy7igJkgVGhlIGVzc2VudGlhbCBkaWZmZXJlbmNlIGlzIG1pbmRzLCBoZWFydHMsIHNwaXJpdHMsIGFuZCBzb3Vscy7igJ0K4oCcWW91IGhhdmUgdG8gdHJlYXQgeW91ciBlbXBsb3llZXMgbGlrZSBjdXN0b21lcnMu4oCdCuKAnFlvdSBkb27igJl0IGhpcmUgZm9yIHNraWxscywgeW91IGhpcmUgZm9yIGF0dGl0dWRlLiBZb3UgY2FuIGFsd2F5cyB0ZWFjaCBza2lsbHMu4oCdCuKAnEEgY29tcGFueSBpcyBzdHJvbmdlciBpZiBpdCBpcyBib3VuZCBieSBsb3ZlIHJhdGhlciB0aGFuIGJ5IGZlYXIu4oCdCuKAnFRoaW5rIHNtYWxsIGFuZCBhY3Qgc21hbGwsIGFuZCB3ZeKAmWxsIGdldCBiaWdnZXIuIFRoaW5rIGJpZyBhbmQgYWN0IGJpZywgYW5kIHdl4oCZbGwgZ2V0IHNtYWxsZXIu4oCdCuKAnElmIHlvdeKAmXJlIGNyYXp5IGVub3VnaCB0byBkbyB3aGF0IHlvdSBsb3ZlIGZvciBhIGxpdmluZywgdGhlbiB5b3XigJlyZSBib3VuZCB0byBjcmVhdGUgYSBsaWZlIHRoYXQgbWF0dGVycy7igJ0K4oCcSSB0ZWxsIG15IGVtcGxveWVlcyB0aGF0IHdl4oCZcmUgaW4gdGhlIHNlcnZpY2UgYnVzaW5lc3MsIGFuZCBpdOKAmXMgaW5jaWRlbnRhbCB0aGF0IHdlIGZseSBhaXJwbGFuZXMu4oCdCuKAnEp1c3QgYmVjYXVzZSB5b3UgZG9u4oCZdCBhbm5vdW5jZSB5b3VyIHBsYW4gZG9lc27igJl0IG1lYW4geW91IGRvbuKAmXQgaGF2ZSBvbmUu4oCdCuKAnEkgZm9yZ2l2ZSBhbGwgcGVyc29uYWwgd2Vha25lc3NlcyBleGNlcHQgZWdvbWFuaWEgYW5kIHByZXRlbnNpb24u4oCdCuKAnElmIHlvdSBkb27igJl0IHRyZWF0IHlvdXIgb3duIHBlb3BsZSB3ZWxsLCB0aGV5IHdvbuKAmXQgdHJlYXQgb3RoZXIgcGVvcGxlIHdlbGwu4oCdCuKAnFRoZSBidXNpbmVzcyBvZiBidXNpbmVzcyBpcyBwZW9wbGUu4oCdCuKAnElmIHlvdSBjcmVhdGUgYW4gZW52aXJvbm1lbnQgd2hlcmUgdGhlIHBlb3BsZSB0cnVseSBwYXJ0aWNpcGF0ZSwgeW91IGRvbuKAmXQgbmVlZCBjb250cm9sLiBUaGV5IGtub3cgd2hhdCBuZWVkcyB0byBiZSBkb25lIGFuZCB0aGV5IGRvIGl0LuKAnQrigJxMZWFkaW5nIGFuZCBvcmdhbml6YXRpb24gaXMgYXMgbXVjaCBhYm91dCBzb3VsIGFzIGl0IGlzIGFib3V0IHN5c3RlbXMuIEVmZmVjdGl2ZSBsZWFkZXJzaGlwIGZpbmRzIGl0cyBzb3VyY2UgaW4gdW5kZXJzdGFuZGluZy7igJ0K4oCcSSBsZWFybmVkIGl0IGJ5IGRvaW5nIGl0LCBhbmQgSSB3YXMgc2NhcmVkIHRvIGRlYXRoLuKAnQrigJxJIHRob3VnaHQgbXkgZ3JlYXRlc3QgbW9tZW50IGluIGJ1c2luZXNzIHdhcyB3aGVuIHRoZSBmaXJzdCBTb3V0aHdlc3QgYWlycGxhbmUgYXJyaXZlZCBhZnRlciBmb3VyIHllYXJzIG9mIGxpdGlnYXRpb24gYW5kIEkgd2Fsa2VkIHVwIHRvIGl0IGFuZCBJIGtpc3NlZCB0aGF0IGJhYnkgb24gdGhlIGxpcHMgYW5kIEkgY3JpZWQu4oCdCiJXaGVuIGl0IGNvbWVzIHRvIGdldHRpbmcgdGhpbmdzIGRvbmUsIHdlIG5lZWQgZmV3ZXIgYXJjaGl0ZWN0cyBhbmQgbW9yZSBicmlja2xheWVycy4iCg=="
             decoded_motd = base64.b64decode(motd).decode('utf-8')
             sayings = decoded_motd.split("\n")
             message = random.choice(sayings).strip()

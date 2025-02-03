@@ -55,7 +55,7 @@ import hashlib
 import hmac
 import http.server
 import io
-#import urllib3
+import urllib3
 import queue
 import socketserver
 import random
@@ -1431,33 +1431,33 @@ class OIDCDebugger:
         create_well_known_dropdown(self.frame, self.endpoint_entry)
         
         self.server_name_label = ttk.Label(self.frame, text="Enter server name for redirect URL(optional):")
-        self.server_name_label.grid(row=1, column=0, padx=0, pady=0, sticky="w")
+        self.server_name_label.grid(row=2, column=0, padx=0, pady=0, sticky="w")
         self.server_name_entry = ttk.Entry(self.frame, width=50)
-        self.server_name_entry.grid(row=1, column=1, padx=0, pady=0, sticky="ew")
+        self.server_name_entry.grid(row=2, column=1, padx=0, pady=0, sticky="ew")
         
         self.client_id_label = ttk.Label(self.frame, text="Client ID:")
-        self.client_id_label.grid(row=2, column=0, padx=0, pady=0, sticky="w")
+        self.client_id_label.grid(row=3, column=0, padx=0, pady=0, sticky="w")
         self.client_id_entry = ttk.Entry(self.frame, width=50)
-        self.client_id_entry.grid(row=2, column=1, padx=0, pady=0, sticky="ew")
+        self.client_id_entry.grid(row=3, column=1, padx=0, pady=0, sticky="ew")
         
         self.client_secret_label = ttk.Label(self.frame, text="Client Secret:")
-        self.client_secret_label.grid(row=3, column=0, padx=0, pady=0, sticky="w")
+        self.client_secret_label.grid(row=4, column=0, padx=0, pady=0, sticky="w")
         self.client_secret_entry = ttk.Entry(self.frame, width=50, show="*")
-        self.client_secret_entry.grid(row=3, column=1, padx=0, pady=0, sticky="ew")
+        self.client_secret_entry.grid(row=4, column=1, padx=0, pady=0, sticky="ew")
         
         self.scope_label = ttk.Label(self.frame, text="Enter Scopes (e.g., openid profile email):")
-        self.scope_label.grid(row=4, column=0, padx=0, pady=0, sticky="w")
+        self.scope_label.grid(row=5, column=0, padx=0, pady=0, sticky="w")
         self.scope_entry = ttk.Entry(self.frame, width=50)
-        self.scope_entry.grid(row=4, column=1, padx=0, pady=0, sticky="ew")
+        self.scope_entry.grid(row=5, column=1, padx=0, pady=0, sticky="ew")
 
         self.aud_label = ttk.Label(self.frame, text="Audience (aud):")
-        self.aud_label.grid(row=5, column=0, padx=0, pady=0, sticky="w")
+        self.aud_label.grid(row=6, column=0, padx=0, pady=0, sticky="w")
         self.aud_entry = ttk.Entry(self.frame, width=50)
-        self.aud_entry.grid(row=5, column=1, padx=0, pady=0, sticky="ew")
+        self.aud_entry.grid(row=6, column=1, padx=0, pady=0, sticky="ew")
 
         # Options frame moved here
         self.options_frame = ttk.LabelFrame(self.frame, text="Options", padding="5")
-        self.options_frame.grid(row=6, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
+        self.options_frame.grid(row=7, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
 
         self.oauth_checkbox_var = tk.BooleanVar(value=False)
         self.oauth_checkbox = ttk.Checkbutton(self.options_frame, text="OAUTH Only", variable=self.oauth_checkbox_var, command=self.toggle_options)
@@ -1470,43 +1470,31 @@ class OIDCDebugger:
         separator = ttk.Separator(self.options_frame, orient='vertical')
         separator.grid(row=0, column=1, rowspan=3, padx=0, pady=0, sticky="ns")
 
-            
         self.auth_method = tk.StringVar(value="client_secret_post")
         self.client_secret_post_radiobutton = ttk.Radiobutton(self.options_frame, text="Client Secret Post", variable=self.auth_method, value="client_secret_post")
         self.client_secret_post_radiobutton.grid(row=0, column=2, padx=0, pady=0, sticky="w")
         self.client_secret_basic_radiobutton = ttk.Radiobutton(self.options_frame, text="Client Secret Basic", variable=self.auth_method, value="client_secret_basic")
         self.client_secret_basic_radiobutton.grid(row=1, column=2, padx=0, pady=0, sticky="w")
 
-        self.start_is_https_server = tk.BooleanVar(value=True)
-        self.start_is_https_server_checkbox = ttk.Checkbutton(self.options_frame, text="Web Server", variable=self.start_is_https_server)
-        self.start_is_https_server_checkbox.grid(row=2, column=2, padx=0, pady=0, sticky="w")
-
-        self.is_exchange_code_for_tokens = tk.BooleanVar(value=True)
-        self.exchange_code_for_tokens_checkbox = ttk.Checkbutton(self.options_frame, text="Exchange Code\nfor Tokens", variable=self.is_exchange_code_for_tokens)
-        self.exchange_code_for_tokens_checkbox.grid(row=3, column=2, padx=0, pady=0, sticky="w")
-
-        self.is_userinfo_query = tk.BooleanVar(value=True)
-        self.user_info_query_checkbox = ttk.Checkbutton(self.options_frame, text="User Info Query", variable=self.is_userinfo_query)
-        self.user_info_query_checkbox.grid(row=2, column=0, padx=0, pady=0, sticky="w")
         separator2 = ttk.Separator(self.options_frame, orient='vertical')
-        separator2.grid(row=0, column=2, rowspan=3, padx=0, pady=0, sticky="ns")
+        separator2.grid(row=0, column=3, rowspan=3, padx=0, pady=0, sticky="ns")
+
         self.clear_text_checkbox = tk.BooleanVar()
         ttk.Checkbutton(self.options_frame, text="Clear response text\n before next request", variable=self.clear_text_checkbox).grid(row=1, column=4, padx=0, pady=2, sticky="e")
         self.log_oidc_process = tk.BooleanVar()
         ttk.Checkbutton(self.options_frame, text="Log OIDC process\n in separate window", variable=self.log_oidc_process).grid(row=0, column=4, padx=0, pady=2, sticky="e")
-
+    
+        self.get_oauth_tokens_btn = ttk.Button(self.frame, text="Get OAuth Token", command=self.get_oauth_tokens)
+        self.get_oauth_tokens_btn.grid(row=9, column=1, padx=0, pady=2, sticky="e")
 
         self.generate_request_btn = ttk.Button(self.frame, text="Generate Auth Request", command=self.generate_auth_request)
-        self.generate_request_btn.grid(row=7, column=1, padx=0, pady=5, sticky="w")
+        self.generate_request_btn.grid(row=9, column=0, padx=0, pady=2, sticky="w")
 
         self.auth_url_text = tk.Text(self.frame, height=5, width=80)
-        self.auth_url_text.grid(row=8, column=0, columnspan=2, padx=0, pady=5, sticky="ew")
-        auth_url_scrollbar = ttk.Scrollbar(self.frame, orient="vertical", command=self.auth_url_text.yview)
-        self.auth_url_text.configure(yscrollcommand=auth_url_scrollbar.set)
-        auth_url_scrollbar.grid(row=8, column=2, sticky="ns")
+        self.auth_url_text.grid(row=10, column=0, columnspan=2, padx=0, pady=5, sticky="ew")
 
         self.submit_btn = ttk.Button(self.frame, text="Submit Auth Request", command=self.submit_auth_request)
-        self.submit_btn.grid(row=9, column=1, padx=0, pady=5, sticky="w")
+        self.submit_btn.grid(row=11, column=1, padx=0, pady=5, sticky="w")
         
         self.response_table_frame = ttk.Frame(self.frame)
         self.response_table_frame.grid(row=0, column=2, rowspan=9, padx=5, pady=5, sticky="nsew")
@@ -1530,51 +1518,46 @@ class OIDCDebugger:
         table_scrollbar_x.grid(row=1, column=1, sticky="ew")
 
         self.response_text = tk.Text(self.frame, height=30, width=100)
-        self.response_text.grid(row=11, column=0, columnspan=2, padx=0, pady=5, sticky="ew")
+        self.response_text.grid(row=12, column=0, columnspan=2, padx=0, pady=5, sticky="nsew")
         response_text_scrollbar = ttk.Scrollbar(self.frame, orient="vertical", command=self.response_text.yview)
         self.response_text.configure(yscrollcommand=response_text_scrollbar.set)
-        response_text_scrollbar.grid(row=11, column=2, sticky="ns")
+        response_text_scrollbar.grid(row=12, column=2, sticky="ns")
 
         self.certificate_btn = ttk.Button(self.frame, text="Show Certificate", command=self.show_certificate)
-        self.certificate_btn.grid(row=12, column=1, padx=0, pady=5, sticky="w")
+        self.certificate_btn.grid(row=13, column=1, padx=0, pady=5, sticky="w")
 
         self.replace_certificate_btn = ttk.Button(self.frame, text="Replace Certificate", command=self.replace_certificate)
-        self.replace_certificate_btn.grid(row=13, column=1, padx=0, pady=5, sticky="w")
+        self.replace_certificate_btn.grid(row=14, column=1, padx=0, pady=5, sticky="w")
 
         self.oidc_log_window = None
-        # Draw the screen and start network operations after UI is fully rendered 
         self.window.update_idletasks() 
-
-    # ...existing code...
 
     def open_oidc_log_window(self):
         if self.oidc_log_window is None or not self.oidc_log_window.winfo_exists():
             self.oidc_log_window = tk.Toplevel(self.window)
             self.oidc_log_window.title("OIDC Process Log")
-            self.oidc_log_text = tk.Text(self.oidc_log_window, wrap=tk.WORD, height=20, width=80)
-            self.oidc_log_text.pack(fill=tk.BOTH, expand=True)
+            self.oidc_log_window.geometry("600x400")
+            self.oidc_log_window.grid_rowconfigure(0, weight=1)
+            self.oidc_log_window.grid_columnconfigure(0, weight=1)
+            self.oidc_log_text = tk.Text(self.oidc_log_window, wrap=tk.WORD)
+            self.oidc_log_text.grid(row=0, column=0, sticky="nsew")
+            oidc_log_scrollbar = ttk.Scrollbar(self.oidc_log_window, orient="vertical", command=self.oidc_log_text.yview)
+            self.oidc_log_text.configure(yscrollcommand=oidc_log_scrollbar.set)
+            oidc_log_scrollbar.grid(row=0, column=1, sticky="ns")
 
     def toggle_options(self): 
         if self.oauth_checkbox_var.get():
             self.use_pkce.set(value=False)
-            self.start_is_https_server.set(value=False)
-            self.is_exchange_code_for_tokens.set(value=False)
-            self.is_userinfo_query.set(value=False)
             state = "disabled"
         else:
             self.use_pkce.set(value=True)
-            self.start_is_https_server.set(value=True)
-            self.is_exchange_code_for_tokens.set(value=True)
-            self.is_userinfo_query.set(value=True)
             state = "normal"
         
         self.use_pkce_checkbutton.configure(state=state) 
         self.client_secret_post_radiobutton.configure(state=state)
         self.client_secret_basic_radiobutton.configure(state=state)
-        self.start_is_https_server_checkbox.configure(state=state)
-        self.exchange_code_for_tokens_checkbox.configure(state=state)
-        self.user_info_query_checkbox.configure(state=state)
         self.submit_btn.configure(state=state)
+        self.generate_request_btn.configure(state=state)
 
     def update_endpoint_entry(self, event):
         selected_value = self.well_known_var.get()
@@ -1585,25 +1568,137 @@ class OIDCDebugger:
             self.endpoint_entry.delete(0, tk.END)
             self.endpoint_entry.insert(0, "Enter well-known endpoint URL")
 
+    def fetch_well_known(self):
+        if self.log_oidc_process.get():
+            self.open_oidc_log_window()
 
-    def copy_item_to_clipboard(self, event):
-        selected_item = self.response_table.selection()
-        if selected_item:
-            item = selected_item[0]
-            column = self.response_table.identify_column(event.x)
-            value = self.response_table.item(item, "values")[int(column[1:]) - 1]
-            self.window.clipboard_clear()
-            self.window.clipboard_append(value)
-            self.window.update()  # Keep the clipboard updated
-            messagebox.showinfo("Copied", f"Copied to clipboard:\n{value}")
+        well_known_url = self.endpoint_entry.get().strip()
+
+        if not well_known_url:
+            self.response_text.insert(tk.END, "Please enter a well-known endpoint URL.\n")
+            return
+
+        try:
+            response = requests.get(well_known_url, verify=self.ssl_context)
+            response.raise_for_status()
+            well_known_data = response.json()
+            self.display_well_known_response(well_known_data)
+            self.response_text.insert(tk.END, f"Well-known configuration loaded.\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Well-known configuration response:\n{json.dumps(well_known_data, indent=4)}\n")
+
+        except requests.exceptions.ConnectionError as e:
+            messagebox.showerror("Connection Error", f"Failed to connect to {well_known_url}. Please check the URL and your network connection.")
+            log_error("Connection Error", e)
+        except urllib3.exceptions.MaxRetryError as e:
+            messagebox.showerror("Max Retry Error", f"Max retries exceeded for {well_known_url}. Please check the URL and your network connection.")
+            log_error("Max Retry Error" ,e)
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Request Error", f"An error occurred while fetching the well-known configuration: {e}")
+            log_error("Request Error", e)
+        except requests.exceptions.InvalidURL as e:
+            messagebox.showerror("Request Error", f"An error occurred while fetching the well-known configuration: {e}")
+            log_error("Request Error", e)            
+        except Exception as ssl_error:
+            response = requests.get(well_known_url, verify=False)
+            well_known_data = response.json()
+            self.display_well_known_response(well_known_data)
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Well-known configuration response:\n{json.dumps(well_known_data, indent=4)}\n")
+
+        if response.status_code != 200:
+                self.response_text.insert(tk.END, f"Error fetching well-known configuration: {response.status_code}\n")
+                log_error("Unable to query Well-known Endpoint",f"{response.status_code}")
+
+
+        return well_known_data
+
+
+    def get_oauth_tokens(self):
+        OAUTH_DEBUG = True
+        cert_path = certifi.where()
+        CA_path = certifi.where()
+        ssl_context = create_combined_ssl_context(CA_path, cert_path) #if cert_path else None
+
+        config = self.fetch_well_known()
+
+
+        self.display_well_known_response(config)
+        if self.log_oidc_process.get():
+            self.oidc_log_text.insert(tk.END, f"Well-known configuration response:\n{json.dumps(config, indent=4)}\n")
+
+
+        auth_endpoint = config.get("authorization_endpoint")
+        token_endpoint = config.get("token_endpoint")
+        introspection_endpoint = config.get("introspection_endpoint")
+
+        client_id = self.client_id_entry.get().strip()
+        client_secret = self.client_secret_entry.get().strip()
+        scopes = self.scope_entry.get().strip()
+        aud = self.aud_entry.get().strip()
+
+        if OAUTH_DEBUG:
+            print(f"Auth Endpoint: {auth_endpoint}")
+            print(f"Token Endpoint: {token_endpoint}")
+            print(f"Introspection Endpoint: {introspection_endpoint}")
+            print(f"Client ID: {client_id}")
+            print(f"Client Secret: {client_secret}")
+            print(f"Scopes: {scopes}")
+            print(f"Audience: {aud}")
+
+
+        if not all([token_endpoint, client_id, client_secret, scopes]):
+            self.response_text.delete(1.0, tk.END)
+            self.response_text.insert(tk.END, "Please fill in all fields to get tokens.")
+            return
+
+        data = {
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'grant_type': 'client_credentials',
+            'scope': scopes
+        }
+        if aud:
+           data = {
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'grant_type': 'client_credentials',
+            'scope': scopes,
+            'aud': aud
+            }
+
+        try:
+            response = requests.post(token_endpoint, data=data, verify=self.ssl_context)
+        except Exception as ssl_error:
+            response = requests.post(token_endpoint, data=data, verify=False)
+
+        response.raise_for_status()
+        token_data = response.json()
+        access_token = token_data.get('access_token')
+        self.response_text.insert(tk.END, f"Access Token:\n{access_token}\n\n")
+        self.response_text.insert(tk.END, f"Token Type:\n{token_data.get('token_type')}\n\n")
+        self.response_text.insert(tk.END, f"Expires In:\n{token_data.get('expires_in')}\n\n")
+
+        if access_token:
+            try:
+                decoded_token = self.decode_jwt(access_token)
+                self.response_text.insert(tk.END, f"Decoded Access Token:\n{decoded_token}\n\n")
+            except Exception as e:
+                self.response_text.insert(tk.END, f"Error decoding access token: {e}\n")
+
+        if self.log_oidc_process.get():
+            self.oidc_log_text.insert(tk.END, f"Well-known configuration response:\n{json.dumps(config, indent=4)}\n")
+            self.oidc_log_text.insert(tk.END, f"Access Token:\n{access_token}\n\n")
+            self.oidc_log_text.insert(tk.END, f"Token Type:\n{token_data.get('token_type')}\n\n")
+            self.oidc_log_text.insert(tk.END, f"Expires In:\n{token_data.get('expires_in')}\n\n")
+            self.oidc_log_text.insert(tk.END, f"Decoded Access Token:\n{decoded_token}\n\n")
 
     def generate_auth_request(self):
         if self.log_oidc_process.get():
             self.open_oidc_log_window()
 
-        well_known_url = self.well_known_var.get()
-        if not well_known_url:
-            well_known_url = self.endpoint_entry.get().strip()
+        well_known_url = self.endpoint_entry.get().strip()
+    
 
         client_id = self.client_id_entry.get().strip()
         client_secret = self.client_secret_entry.get().strip()
@@ -1785,6 +1880,8 @@ class OIDCDebugger:
     def start_https_server(self):
         global https_server, https_server_thread
 
+
+
         server_name = self.server_name_entry.get().strip()
         if not server_name:
             server_name = "localhost"
@@ -1866,6 +1963,8 @@ class OIDCDebugger:
 
 
     def exchange_code_for_tokens(self, code):
+
+
         server_name = self.server_name_entry.get().strip()
         if not server_name:
             server_name = "localhost"
@@ -2007,6 +2106,8 @@ class OIDCDebugger:
 
 
     def userinfo_query(self, token, token_type):
+ 
+
         try:
             headers = {
                 'Authorization': f'Bearer {token}'
@@ -2125,14 +2226,7 @@ class OIDCDebugger:
         for key, value in config.items():
             self.response_table.insert("", "end", values=(key, value))
 
-    def on_item_double_click(self, event):
-        item = event.widget.selection()[0]
-        column = event.widget.identify_column(event.x)
-        value = event.widget.item(item, "values")[int(column[1:]) - 1]
-        self.master.clipboard_clear()
-        self.master.clipboard_append(value)
-        self.master.update()  # Keep the clipboard updated
-        tk.messagebox.showinfo("Copied", f"Copied to clipboard:\n{value}")
+
 
 
 class CustomWindow:
@@ -2844,6 +2938,8 @@ class HTTPRequest:
         def fetch_url_nossl_thread(url, regex, port):
             return asyncio.run(self.fetch_url_nossl(url, regex, port))
 
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = []
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = []
             for entry in self.urls[env]:
@@ -3660,15 +3756,6 @@ def main():
     ttk.Button(sidebar, text="SSL Certificate Reader", command=lambda: open_ssl_cert_reader(theme_var.get())).grid(row=11, column=0, padx=5, pady=2)
     ttk.Button(sidebar, text="JWKS Check", command=lambda: open_jwks_check_window(theme_var.get())).grid(row=12, column=0, padx=5, pady=2)
     ttk.Button(sidebar, text="PingFederate OAuth Client Tool", command=lambda: open_pingfederate_client_app(theme_var.get())).grid(row=13, column=0, padx=5, pady=2)
-    ttk.Button(sidebar, text="ActiveDirectoryDebugger", command=lambda: ActiveDirectoryDebugger(theme_var.get())).grid(row=14, column=0, padx=5, pady=2)
-
-    # Add frames for HTTPRequest and NSLookup
-#    nslookup_frame = ttk.Frame(scrollable_frame, padding="5")
-#    nslookup_frame.grid(row=0, column=0, sticky="nsew")
-#    NSLookup(nslookup_frame, theme_var.get())
-
-#    http_request_frame = ttk.Frame(scrollable_frame, padding="5")
-#    http_request_frame.grid(row=1, column=0, sticky="nsew")
 #    HTTPRequest(http_request_frame, theme_var.get())
 
     for widget in scrollable_frame.winfo_children():
