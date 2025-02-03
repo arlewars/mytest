@@ -59,7 +59,6 @@ import urllib3
 import queue
 import socketserver
 import random
-import tempfile
 
 python_executable = sys.executable
 current_path = os.getcwd()
@@ -1880,24 +1879,26 @@ class OIDCDebugger:
 
     def start_https_server(self):
         global https_server, https_server_thread
-        temp_file = tempfile.NamedTemporaryFile(delete=False)
-        temp_file_path = temp_file.name
+
+
 
         server_name = self.server_name_entry.get().strip()
         if not server_name:
             server_name = "localhost"
+        # Check if the server name resolves
         try:
             socket.gethostbyname(server_name)
         except socket.error:
+            self.response_text.insert(tk.END, f"Server name '{server_name}' does not resolve. Using 127.0.0.1 instead.\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Server name '{server_name}' does not resolve. Using 127.0.0.1 instead.\n")
             server_name = "localhost"
-        
-        if https_server is not None:
-            with open(temp_file_path, 'a') as f:
-                f.write("HTTPS server is already running.\n")
-            self.write_temp_to_text(temp_file_path)
+            
+        if https_server is not None: 
+            self.response_text.insert(tk.END, "HTTPS server is already running.\n")
             return
 
-        handler = self.create_https_handler(temp_file_path)
+        handler = self.create_https_handler()
         https_server = socketserver.TCPServer((server_name, self.server_port), handler)
 
         context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
@@ -1908,22 +1909,31 @@ class OIDCDebugger:
         https_server_thread.daemon = True
         try:
             https_server_thread.start()
-            with open(temp_file_path, 'a') as f:
-                f.write(f"HTTPS server started on https://{server_name}:{self.server_port}/callback\n\n")
-                f.write(f"Please confirm {self.client_id} has the redirect uri:  https://{server_name}:{self.server_port}/callback\n")
-        except Exception as e:
-            with open(temp_file_path, 'a') as f:
-                f.write(f"HTTPS server https://{server_name}:{self.server_port} Failed.\n")
-            log_error("HTTPS server Failed.", e)
-        self.write_temp_to_text(temp_file_path)
+            self.response_text.insert(tk.END, f"HTTPS server started on https://{server_name}:{self.server_port}/callback\n\n")
+            self.response_text.insert(tk.END, f"Please confirm {self.client_id} has the redirect uri:  https://{server_name}:{self.server_port}/callback\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"HTTPS server started on https://{server_name}:{self.server_port}/callback\n\n")
+                self.oidc_log_text.insert(tk.END, f"Please confirm {self.client_id} has the redirect uri:  https://{server_name}:{self.server_port}/callback\n")
+                self.add_horizontal_rule()
 
-    def create_https_handler(self, temp_file_path):
+        except Exception as e:
+            self.response_text.insert(tk.END, f"HTTPS server https://{server_name}:{self.server_port} Failed.\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"HTTPS server https://{server_name}:{self.server_port} Failed.: {e}\n")
+                self.add_horizontal_rule()
+            log_error("HTTPS server Failed.", e)
+    
+    def add_horizontal_rule(self):
+            self.response_text.insert(tk.END, f"---------------------------------------------------\n\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"---------------------------------------------------\n\n")
+
+    
+    def create_https_handler(self):
         parent = self
 
         class HTTPSHandler(http.server.SimpleHTTPRequestHandler):
             def do_GET(self):
-                with open(temp_file_path, 'a') as f:
-                    f.write(f"GET request received: {self.path}\n")
                 if self.path.startswith('/callback'):
                     query = self.path.split('?')[-1]
                     params = {k: v for k, v in (item.split('=') for item in query.split('&'))}
@@ -1941,8 +1951,6 @@ class OIDCDebugger:
                     self.send_error(404, "Not Found")
 
             def do_POST(self):
-                with open(temp_file_path, 'a') as f:
-                    f.write(f"POST request received: {self.path}\n")
                 if self.path == '/kill_server':
                     threading.Thread(target=shutdown_https_server).start()
                     self.send_response(200)
@@ -1953,9 +1961,9 @@ class OIDCDebugger:
                     parent.oidc_log_text.insert(tk.END, "Server shutdown initiated.\n")
         return HTTPSHandler   
 
+
     def exchange_code_for_tokens(self, code):
-        temp_file = tempfile.NamedTemporaryFile(delete=False)
-        temp_file_path = temp_file.name
+
 
         server_name = self.server_name_entry.get().strip()
         if not server_name:
@@ -1998,8 +2006,9 @@ class OIDCDebugger:
                 data["client_assertion"] = client_assertion
                 data["client_assertion_type"] = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
 
-            with open(temp_file_path, 'a') as f:
-                f.write(f"Exchanging code for tokens with data: {data}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Token Exchange Request Data: {json.dumps(data, indent=4)}\n")
+                self.add_horizontal_rule()
 
             try:
                 response = requests.post(self.token_endpoint, data=data, headers=headers, verify=ssl_context)
@@ -2008,29 +2017,34 @@ class OIDCDebugger:
             #response = requests.post(self.token_endpoint, data=data, headers=headers, verify=False)
             
             if response.status_code != 200:
-                with open(temp_file_path, 'a') as f:
-                    f.write(f"Error fetching tokens: {response.status_code}\n")
-                self.write_temp_to_text(temp_file_path)
+                self.response_text.insert(tk.END, f"Error fetching tokens: {response.status_code}\n")
+                if self.log_oidc_process.get():
+                    self.oidc_log_text.insert(tk.END, f"Error fetching tokens: {response.status_code}\n")
+                    self.add_horizontal_rule()
+
+
                 return
 
             tokens = response.json()
-            self.display_tokens(tokens, temp_file_path)
+            self.display_tokens(tokens)
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"Token Exchange Response: {json.dumps(tokens, indent=4)}\n")
                 self.add_horizontal_rule()
 
             
         except Exception as e:
-            with open(temp_file_path, 'a') as f:
-                f.write(f"Error exchanging code for tokens: {e}\n")
+            self.response_text.insert(tk.END, f"Error exchanging code for tokens: {e}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Error exchanging code for tokens: {e}\n")
+                self.add_horizontal_rule()
+
             log_error("Error exchanging code for tokens", e)
-        self.write_temp_to_text(temp_file_path)
 
     def stop_https_server(self): 
         shutdown_https_server() 
         self.response_text.insert(tk.END, "HTTPS server stopped.\n")
 
-    def display_tokens(self, tokens, temp_file_path):
+    def display_tokens(self, tokens):
         try:
         # Clear the response text if the checkbox is checked 
             if self.clear_text_checkbox.get(): 
@@ -2050,13 +2064,13 @@ class OIDCDebugger:
 
 
             if "id_token" in tokens:
-                self.decode_jwt(tokens["id_token"], temp_file_path)
+                self.decode_jwt(tokens["id_token"])
             if "access_token" in tokens:
-                self.userinfo_query(tokens["access_token"], "access", temp_file_path)
+                self.userinfo_query(tokens["access_token"], "access")
             if "access_token" in tokens:
-                self.introspect_token(tokens["access_token"], "access", temp_file_path)
+                self.introspect_token(tokens["access_token"], "access")
             if "refresh_token" in tokens:
-                self.introspect_token(tokens["refresh_token"], "refresh", temp_file_path)
+                self.introspect_token(tokens["refresh_token"], "refresh")
             if "aud" in tokens:
                 self.response_text.insert(tk.END, f"Audience (aud): {tokens['aud']}\n")
                 if self.log_oidc_process.get():
@@ -2069,7 +2083,7 @@ class OIDCDebugger:
             log_error("Error displaying tokens", e)
 
 
-    def decode_jwt(self, token, temp_file_path):
+    def decode_jwt(self, token):
         try:
             header, payload, signature = token.split('.')
             header_decoded = base64.urlsafe_b64decode(header + '==').decode('utf-8')
@@ -2079,16 +2093,21 @@ class OIDCDebugger:
                 "payload": json.loads(payload_decoded),
                 "signature": signature
             }
-            with open(temp_file_path, 'a') as f:
-                f.write(f"Decoded JWT:\n{json.dumps(decoded, indent=4)}\n")
-            return json.dumps(decoded, indent=4)
-        except Exception as e:
-            with open(temp_file_path, 'a') as f:
-                f.write(f"Error decoding JWT: {e}\n")
-            log_error("Error decoding JWT", e)
-            return f"Error decoding JWT: {e}"
+            self.response_text.insert(tk.END, f"Decoded ID Token: {json.dumps(decoded, indent=4)}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Decoded ID Token: {json.dumps(decoded, indent=4)}\n")
+                self.add_horizontal_rule()
 
-    def userinfo_query(self, token, token_type, temp_file_path):
+        except Exception as e:
+            self.response_text.insert(tk.END, f"Error decoding JWT: {e}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Error decoding JWT: {e}\n")
+                self.add_horizontal_rule()
+
+
+    def userinfo_query(self, token, token_type):
+ 
+
         try:
             headers = {
                 'Authorization': f'Bearer {token}'
@@ -2120,7 +2139,7 @@ class OIDCDebugger:
                 self.add_horizontal_rule()
 
 
-    def introspect_token(self, token, token_type, temp_file_path):
+    def introspect_token(self, token, token_type):
         try:
             data = {
                 "token": token,
@@ -2207,13 +2226,7 @@ class OIDCDebugger:
         for key, value in config.items():
             self.response_table.insert("", "end", values=(key, value))
 
-    def write_temp_to_text(self, temp_file_path):
-        with open(temp_file_path, 'r') as f:
-            content = f.read()
-        self.response_text.insert(tk.END, content)
-        if self.log_oidc_process.get():
-            self.oidc_log_text.insert(tk.END, content)
-        os.remove(temp_file_path)
+
 
 
 class CustomWindow:
