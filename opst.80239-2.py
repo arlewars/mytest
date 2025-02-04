@@ -46,6 +46,7 @@ import ssl
 import time
 import aiodns
 import aiohttp
+import ldap3
 import psutil
 import pygame
 import dns.resolver
@@ -1274,6 +1275,7 @@ def open_oauth_window(theme):
 
     well_known_table_frame = ttk.Frame(frame)
     well_known_table_frame.grid(row=0, column=3, rowspan=12, padx=10, pady=10, sticky="nsew")
+
     well_known_table = CustomTable(well_known_table_frame, ("Key", "Value"), 0, 0)
 
     def fetch_well_known_oauth():
@@ -1282,7 +1284,9 @@ def open_oauth_window(theme):
         if not well_known_url:
             result_text.delete(1.0, tk.END)
             result_text.insert(tk.END, "Please enter a Well-Known Endpoint URL.")
-            return        
+            return
+        
+
         try:
             try:
                 well_known_response = requests.get(well_known_url, verify=ssl_context)
@@ -1409,11 +1413,6 @@ class OIDCDebugger:
         self.window.geometry("1400x600")
         self.server_port = 4443
         ssl_context = create_combined_ssl_context(CA_path, cert_path) if cert_path else None
-               # Create a temporary file for logging
-        if not os.path.exists("OIDClog.txt"):
-            with open("OIDClog.txt", "w") as oidcfile:
-                oidcfile.write("Logging OIDC process.")
-        self.log_file = open("OIDClog.txt", "a")
         self.setup_ui()
 
     def apply_theme(self):
@@ -1457,25 +1456,34 @@ class OIDCDebugger:
         self.aud_entry = ttk.Entry(self.frame, width=50)
         self.aud_entry.grid(row=6, column=1, padx=0, pady=0, sticky="ew")
 
+        # Options frame moved here
+        self.options_frame = ttk.LabelFrame(self.frame, text="Options", padding="5")
+        self.options_frame.grid(row=7, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
+
         self.oauth_checkbox_var = tk.BooleanVar(value=False)
-        self.oauth_checkbox = ttk.Checkbutton(self.frame, text="OAUTH Only", variable=self.oauth_checkbox_var, command=self.toggle_options)
-        self.oauth_checkbox.grid(row=7, column=0, padx=0, pady=0, sticky="w")
+        self.oauth_checkbox = ttk.Checkbutton(self.options_frame, text="OAUTH Only", variable=self.oauth_checkbox_var, command=self.toggle_options)
+        self.oauth_checkbox.grid(row=0, column=0, padx=0, pady=0, sticky="w")
 
         self.use_pkce = tk.BooleanVar(value=True)
-        self.use_pkce_checkbutton = ttk.Checkbutton(self.frame, text="Use PKCE", variable=self.use_pkce)
-        self.use_pkce_checkbutton.grid(row=7, column=1, padx=0, pady=0, sticky="w")
+        self.use_pkce_checkbutton = ttk.Checkbutton(self.options_frame, text="Use PKCE", variable=self.use_pkce)
+        self.use_pkce_checkbutton.grid(row=1, column=0, padx=0, pady=0, sticky="w")
+
+        separator = ttk.Separator(self.options_frame, orient='vertical')
+        separator.grid(row=0, column=1, rowspan=3, padx=0, pady=0, sticky="ns")
 
         self.auth_method = tk.StringVar(value="client_secret_post")
-        self.client_secret_post_radiobutton = ttk.Radiobutton(self.frame, text="Client Secret Post", variable=self.auth_method, value="client_secret_post")
-        self.client_secret_post_radiobutton.grid(row=8, column=0, padx=0, pady=0, sticky="w")
-        self.client_secret_basic_radiobutton = ttk.Radiobutton(self.frame, text="Client Secret Basic", variable=self.auth_method, value="client_secret_basic")
-        self.client_secret_basic_radiobutton.grid(row=8, column=1, padx=0, pady=0, sticky="w")
+        self.client_secret_post_radiobutton = ttk.Radiobutton(self.options_frame, text="Client Secret Post", variable=self.auth_method, value="client_secret_post")
+        self.client_secret_post_radiobutton.grid(row=0, column=2, padx=0, pady=0, sticky="w")
+        self.client_secret_basic_radiobutton = ttk.Radiobutton(self.options_frame, text="Client Secret Basic", variable=self.auth_method, value="client_secret_basic")
+        self.client_secret_basic_radiobutton.grid(row=1, column=2, padx=0, pady=0, sticky="w")
 
+        separator2 = ttk.Separator(self.options_frame, orient='vertical')
+        separator2.grid(row=0, column=3, rowspan=3, padx=0, pady=0, sticky="ns")
 
         self.clear_text_checkbox = tk.BooleanVar()
-        ttk.Checkbutton(self.frame, text="Clear response text\n before next request", variable=self.clear_text_checkbox).grid(row=8, column=1, padx=0, pady=2, sticky="e")
+        ttk.Checkbutton(self.options_frame, text="Clear response text\n before next request", variable=self.clear_text_checkbox).grid(row=1, column=4, padx=0, pady=2, sticky="e")
         self.log_oidc_process = tk.BooleanVar()
-        ttk.Checkbutton(self.frame, text="Log OIDC process\n in separate window", variable=self.log_oidc_process).grid(row=7, column=1, padx=0, pady=2, sticky="e")
+        ttk.Checkbutton(self.options_frame, text="Log OIDC process\n in separate window", variable=self.log_oidc_process).grid(row=0, column=4, padx=0, pady=2, sticky="e")
     
         self.get_oauth_tokens_btn = ttk.Button(self.frame, text="Get OAuth Token", command=self.get_oauth_tokens)
         self.get_oauth_tokens_btn.grid(row=9, column=1, padx=0, pady=2, sticky="e")
@@ -1614,9 +1622,12 @@ class OIDCDebugger:
         ssl_context = create_combined_ssl_context(CA_path, cert_path) #if cert_path else None
 
         config = self.fetch_well_known()
+
+
         self.display_well_known_response(config)
         if self.log_oidc_process.get():
             self.oidc_log_text.insert(tk.END, f"Well-known configuration response:\n{json.dumps(config, indent=4)}\n")
+
 
         auth_endpoint = config.get("authorization_endpoint")
         token_endpoint = config.get("token_endpoint")
@@ -1635,6 +1646,7 @@ class OIDCDebugger:
             print(f"Client Secret: {client_secret}")
             print(f"Scopes: {scopes}")
             print(f"Audience: {aud}")
+
 
         if not all([token_endpoint, client_id, client_secret, scopes]):
             self.response_text.delete(1.0, tk.END)
@@ -1687,6 +1699,8 @@ class OIDCDebugger:
             self.open_oidc_log_window()
 
         well_known_url = self.endpoint_entry.get().strip()
+    
+
         client_id = self.client_id_entry.get().strip()
         client_secret = self.client_secret_entry.get().strip()
         scopes = self.scope_entry.get().strip()
@@ -1706,6 +1720,8 @@ class OIDCDebugger:
                 response = requests.get(well_known_url, verify=ssl_context)
             except Exception as ssl_error:
                 response = requests.get(well_known_url, verify=False)
+
+            #response = requests.get(well_known_url, verify=False)
             if response.status_code != 200:
                 self.response_text.insert(tk.END, f"Error fetching well-known configuration: {response.status_code}\n")
                 log_error("Unable to query Well-known Endpoint",f"{response.status_code}")
@@ -1715,6 +1731,7 @@ class OIDCDebugger:
             self.display_well_known_response(config)
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, f"Well-known configuration response:\n{json.dumps(config, indent=4)}\n")
+
 
             auth_endpoint = config.get("authorization_endpoint")
             token_endpoint = config.get("token_endpoint")
@@ -1773,6 +1790,7 @@ class OIDCDebugger:
         except Exception as e:
             self.response_text.insert(tk.END, "Web server failed.\n")
 
+
     def generate_state(self):
         return base64.urlsafe_b64encode(os.urandom(24)).decode('utf-8').rstrip('=')
 
@@ -1799,7 +1817,9 @@ class OIDCDebugger:
         self.response_text.insert(tk.END, "Please complete the authentication in your browser.\n")
         if self.log_oidc_process.get():
             self.oidc_log_text.insert(tk.END, f"Opened Authorization URL: {auth_url}\n")
+
         self.response_text.insert(tk.END, f"Opened Authorization URL: {auth_url}\n")
+
 
     def generate_self_signed_cert(self):
         server_name = self.server_name_entry.get().strip()
@@ -1860,22 +1880,24 @@ class OIDCDebugger:
 
     def start_https_server(self):
         global https_server, https_server_thread
+        temp_file = tempfile.NamedTemporaryFile(delete=False)
+        temp_file_path = temp_file.name
+
         server_name = self.server_name_entry.get().strip()
         if not server_name:
             server_name = "localhost"
-        # Check if the server name resolves
         try:
             socket.gethostbyname(server_name)
         except socket.error:
-            self.oidc.write("Server name '{server_name}' does not resolve. Using localhost instead.")
-
             server_name = "localhost"
-            
-        if https_server is not None: 
-            self.response_text.insert(tk.END, "HTTPS server is already running.\n")
+        
+        if https_server is not None:
+            with open(temp_file_path, 'a') as f:
+                f.write("HTTPS server is already running.\n")
+            self.write_temp_to_text(temp_file_path)
             return
 
-        handler = self.create_https_handler()
+        handler = self.create_https_handler(temp_file_path)
         https_server = socketserver.TCPServer((server_name, self.server_port), handler)
 
         context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
@@ -1886,36 +1908,22 @@ class OIDCDebugger:
         https_server_thread.daemon = True
         try:
             https_server_thread.start()
-            self.response_text.insert(tk.END, f"HTTPS server started on https://{server_name}:{self.server_port}/callback\n\n")
-            self.response_text.insert(tk.END, f"Please confirm {self.client_id} has the redirect uri:  https://{server_name}:{self.server_port}/callback\n")
-            if self.log_oidc_process.get():
-                self.oidc_log_text.insert(tk.END, f"HTTPS server started on https://{server_name}:{self.server_port}/callback\n\n")
-                self.oidc_log_text.insert(tk.END, f"Please confirm {self.client_id} has the redirect uri:  https://{server_name}:{self.server_port}/callback\n")
-                self.add_horizontal_rule()
-
+            with open(temp_file_path, 'a') as f:
+                f.write(f"HTTPS server started on https://{server_name}:{self.server_port}/callback\n\n")
+                f.write(f"Please confirm {self.client_id} has the redirect uri:  https://{server_name}:{self.server_port}/callback\n")
         except Exception as e:
-            self.response_text.insert(tk.END, f"HTTPS server https://{server_name}:{self.server_port} Failed.\n")
-            if self.log_oidc_process.get():
-                self.oidc_log_text.insert(tk.END, f"HTTPS server https://{server_name}:{self.server_port} Failed.: {e}\n")
-                self.add_horizontal_rule()
+            with open(temp_file_path, 'a') as f:
+                f.write(f"HTTPS server https://{server_name}:{self.server_port} Failed.\n")
             log_error("HTTPS server Failed.", e)
-    
-    def add_horizontal_rule(self):
-            self.response_text.insert(tk.END, f"---------------------------------------------------\n\n")
-            if self.log_oidc_process.get():
-                self.oidc_log_text.insert(tk.END, f"---------------------------------------------------\n\n")
+        self.write_temp_to_text(temp_file_path)
 
-    def create_https_handler(self):
+    def create_https_handler(self, temp_file_path):
         parent = self
 
         class HTTPSHandler(http.server.SimpleHTTPRequestHandler):
-            def log_message(self, format, *args):
-                with open(parent.tmp_file_path, 'a') as f:
-                    f.write("%s - - [%s] %s\n" %
-                            (self.client_address[0],
-                             self.log_date_time_string(),
-                             format % args))
             def do_GET(self):
+                with open(temp_file_path, 'a') as f:
+                    f.write(f"GET request received: {self.path}\n")
                 if self.path.startswith('/callback'):
                     query = self.path.split('?')[-1]
                     params = {k: v for k, v in (item.split('=') for item in query.split('&'))}
@@ -1933,6 +1941,8 @@ class OIDCDebugger:
                     self.send_error(404, "Not Found")
 
             def do_POST(self):
+                with open(temp_file_path, 'a') as f:
+                    f.write(f"POST request received: {self.path}\n")
                 if self.path == '/kill_server':
                     threading.Thread(target=shutdown_https_server).start()
                     self.send_response(200)
@@ -1944,7 +1954,8 @@ class OIDCDebugger:
         return HTTPSHandler   
 
     def exchange_code_for_tokens(self, code):
-        self.oidcfile.write("Exchanging code for tokens...\n")
+        temp_file = tempfile.NamedTemporaryFile(delete=False)
+        temp_file_path = temp_file.name
 
         server_name = self.server_name_entry.get().strip()
         if not server_name:
@@ -1986,8 +1997,9 @@ class OIDCDebugger:
                 client_assertion = f"{encoded_header}.{encoded_payload}.{signature}"
                 data["client_assertion"] = client_assertion
                 data["client_assertion_type"] = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
-            self.oidcfile.write("Token Exchange Request Data: {json.dumps(data, indent=4)}\n")
 
+            with open(temp_file_path, 'a') as f:
+                f.write(f"Exchanging code for tokens with data: {data}\n")
 
             try:
                 response = requests.post(self.token_endpoint, data=data, headers=headers, verify=ssl_context)
@@ -1996,52 +2008,68 @@ class OIDCDebugger:
             #response = requests.post(self.token_endpoint, data=data, headers=headers, verify=False)
             
             if response.status_code != 200:
-                self.oidcfile.write(f"Error fetching tokens: {response.status_code}\n")
+                with open(temp_file_path, 'a') as f:
+                    f.write(f"Error fetching tokens: {response.status_code}\n")
+                self.write_temp_to_text(temp_file_path)
                 return
 
             tokens = response.json()
-            self.display_tokens(tokens)
-            self.oidcfile.write(f"Token Exchange Response: {json.dumps(tokens, indent=4)}\n")
+            self.display_tokens(tokens, temp_file_path)
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Token Exchange Response: {json.dumps(tokens, indent=4)}\n")
+                self.add_horizontal_rule()
 
             
         except Exception as e:
-            self.oidcfile.write(f"Error exchanging code for tokens: {e}\n")            
+            with open(temp_file_path, 'a') as f:
+                f.write(f"Error exchanging code for tokens: {e}\n")
             log_error("Error exchanging code for tokens", e)
+        self.write_temp_to_text(temp_file_path)
 
     def stop_https_server(self): 
         shutdown_https_server() 
         self.response_text.insert(tk.END, "HTTPS server stopped.\n")
 
-    def display_tokens(self, tokens):
-        self.oidcfile.write("Displaying tokens...\n")
+    def display_tokens(self, tokens, temp_file_path):
         try:
         # Clear the response text if the checkbox is checked 
             if self.clear_text_checkbox.get(): 
                 self.response_text.delete(1.0, tk.END)
             #self.response_text.delete(1.0, tk.END)
             
+            self.response_text.insert(tk.END, f"Display Tokens:\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, "Display Tokens:\n")
+                self.add_horizontal_rule()
+
             for key, value in tokens.items():
                 self.response_text.insert(tk.END, f"{key}: {value}\n")
-                self.oidcfile.write(f"{key}: {value}\n")
+                if self.log_oidc_process.get():
+                    self.oidc_log_text.insert(tk.END, f"{key}: {value}\n")
+                    self.add_horizontal_rule()
 
 
             if "id_token" in tokens:
-                self.decode_jwt(tokens["id_token"])
+                self.decode_jwt(tokens["id_token"], temp_file_path)
             if "access_token" in tokens:
-                self.userinfo_query(tokens["access_token"], "access")
+                self.userinfo_query(tokens["access_token"], "access", temp_file_path)
             if "access_token" in tokens:
-                self.introspect_token(tokens["access_token"], "access")
+                self.introspect_token(tokens["access_token"], "access", temp_file_path)
             if "refresh_token" in tokens:
-                self.introspect_token(tokens["refresh_token"], "refresh")
+                self.introspect_token(tokens["refresh_token"], "refresh", temp_file_path)
             if "aud" in tokens:
-                self.oidcfile.write(f"Audience (aud): {tokens['aud']}\n")
+                self.response_text.insert(tk.END, f"Audience (aud): {tokens['aud']}\n")
+                if self.log_oidc_process.get():
+                    self.oidc_log_text.insert(tk.END, f"Audience (aud): {tokens['aud']}\n")
         except Exception as e:
-            self.oidcfile.write(f"Error displaying tokens: {e}\n")
+            self.response_text.insert(tk.END, f"Error displaying tokens: {e}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Error displaying tokens: {e}\n")
+                self.add_horizontal_rule()
             log_error("Error displaying tokens", e)
 
 
-    def decode_jwt(self, token):
-        self.oidcfile.write("Decoding JWT...\n")
+    def decode_jwt(self, token, temp_file_path):
         try:
             header, payload, signature = token.split('.')
             header_decoded = base64.urlsafe_b64decode(header + '==').decode('utf-8')
@@ -2051,13 +2079,16 @@ class OIDCDebugger:
                 "payload": json.loads(payload_decoded),
                 "signature": signature
             }
-            self.oidcfile.write(f"Decoded ID Token: {json.dumps(decoded, indent=4)}\n")
+            with open(temp_file_path, 'a') as f:
+                f.write(f"Decoded JWT:\n{json.dumps(decoded, indent=4)}\n")
+            return json.dumps(decoded, indent=4)
         except Exception as e:
-            self.oidcfile.write(f"Error decoding JWT: {e}\n")
+            with open(temp_file_path, 'a') as f:
+                f.write(f"Error decoding JWT: {e}\n")
+            log_error("Error decoding JWT", e)
+            return f"Error decoding JWT: {e}"
 
-    def userinfo_query(self, token, token_type):
-        self.oidcfile.write("Querying userinfo...\n")
-
+    def userinfo_query(self, token, token_type, temp_file_path):
         try:
             headers = {
                 'Authorization': f'Bearer {token}'
@@ -2070,16 +2101,26 @@ class OIDCDebugger:
             #response = requests.get(f"{self.userinfo_endpoint}", headers=headers, verify=False)
            
             if response.status_code != 200:
-                self.oidcfile.write(f"Error userinfo {token_type} token: {response.status_code}\n")
+                self.response_text.insert(tk.END, f"Error userinfo {token_type} token: {response.status_code}\n")
+                if self.log_oidc_process.get():
+                    self.oidc_log_text.insert(tk.END, f"Error userinfo {token_type} token: {response.status_code}\n")
+                    self.add_horizontal_rule()
+
                 return
 
             userinfo = response.json()
-            self.oidcfile.write(f"UserInfo {token_type.capitalize()} Token: {json.dumps(userinfo, indent=4)}\n")
+            self.response_text.insert(tk.END, f"UserInfo {token_type.capitalize()} Token: {json.dumps(userinfo, indent=4)}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"UserInfo {token_type.capitalize()} Token: {json.dumps(userinfo, indent=4)}\n")
+                self.add_horizontal_rule()
         except Exception as e:
-            self.oidcfile.write(f"Error calling UserInfo: {e}\n")
+            self.response_text.insert(tk.END, f"Error calling UserInfo: {e}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Error calling UserInfo: {e}\n")
+                self.add_horizontal_rule()
 
-    def introspect_token(self, token, token_type):
-        self.oidcfile.write("Introspecting token...\n")
+
+    def introspect_token(self, token, token_type, temp_file_path):
         try:
             data = {
                 "token": token,
@@ -2112,19 +2153,23 @@ class OIDCDebugger:
             #response = requests.post(self.introspect_endpoint, data=data, headers=headers, verify=False)
 
             if response.status_code != 200:
-                self.oidcfile.write(f"Error introspecting {token_type} token: {response.status_code}\n")
+                self.response_text.insert(tk.END, f"Error introspecting {token_type} token: {response.status_code}\n")
+                if self.log_oidc_process.get():
+                    self.oidc_log_text.insert(tk.END, f"Error introspecting {token_type} token: {response.status_code}\n")
+                    self.add_horizontal_rule()
                 return
 
             introspection = response.json()
-            self.oidcfile.write(f"Introspected {token_type.capitalize()} Token: {json.dumps(introspection, indent=4)}\n")
+            self.response_text.insert(tk.END, f"Introspected {token_type.capitalize()} Token: {json.dumps(introspection, indent=4)}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Introspected {token_type.capitalize()} Token: {json.dumps(introspection, indent=4)}\n")
+                self.add_horizontal_rule()
         except Exception as e:
-            self.oidcfile.write(f"Error introspecting token: {e}\n")
+            self.response_text.insert(tk.END, f"Error introspecting {token_type} token: {e}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Error introspecting {token_type} token: {e}\n")
+                self.add_horizontal_rule()
             log_error("Error introspecting token", e)
-
-        # Copy output to result_text and oidc_log_text
-        with open(self.tmp_file_path, 'r') as f:
-            output = f.read()
-            self.oidcfile.write(output)
 
     def display_well_known_response(self, config):
         # Clear only the treeview items instead of destroying all widgets
@@ -2160,7 +2205,16 @@ class OIDCDebugger:
             self.response_table.bind("<Double-1>", self.on_item_double_click)
 
         for key, value in config.items():
-            self.oidcfile.write(f"{key}: {value}\n")
+            self.response_table.insert("", "end", values=(key, value))
+
+    def write_temp_to_text(self, temp_file_path):
+        with open(temp_file_path, 'r') as f:
+            content = f.read()
+        print(content)
+        self.response_text.insert(tk.END, content)
+        if self.log_oidc_process.get():
+            self.oidc_log_text.insert(tk.END, content)
+        os.remove(temp_file_path)
 
 
 class CustomWindow:
@@ -3101,6 +3155,495 @@ def restore_data():
             log_error("Restore failed", e)
 
 
+class ActiveDirectoryDebugger:
+
+ # Define the templates for the different AD servers
+    dn_templates = {
+        "LUV": [
+            "cn={username},ou=users,ou=field,ou=swaco,dc=luv,dc=ad,dc=swacorp,dc=com",
+            "cn={username},ou=security operations,ou=security,ou=admin,dc=luv,dc=ad,dc=swacorp,dc=com"
+        ],
+        "QAAD": [
+            "cn={username},ou=users,ou=field,ou=swaco,dc=qaad,dc=qaad,dc=swacorp,dc=com",
+            "cn={username},ou=security operations,ou=security,ou=admin,dc=qaad,dc=qaad,dc=swacorp,dc=com"
+        ],
+        "DEVAD": [
+            "cn={username},ou=users,ou=field,ou=swaco,dc=devad,dc=devad,dc=swacorp,dc=com",
+            "cn={username},ou=security operations,ou=security,ou=admin,dc=devad,dc=devad,dc=swacorp,dc=com"
+        ]
+    }
+
+    def __init__(self, master):
+        self.master = master
+        self.window = tk.Toplevel()
+        self.window.title("Active Directory Debugger")
+        self.window.geometry("1000x800")
+        self.setup_ui()
+
+    def toggle_debug_window(self):
+        if self.debug_var.get():
+            self.debug_window = tk.Toplevel(self)
+            self.debug_window.title("LDAP Debug")
+            self.debug_text = tk.Text(self.debug_window, wrap=tk.WORD, height=20, width=80)
+            self.debug_text.pack(fill=tk.BOTH, expand=True)
+        else:
+            if hasattr(self, 'debug_window'):
+                self.debug_window.destroy()
+                del self.debug_text  # Ensure debug_text is deleted when window is closed
+
+    def setup_ui(self):
+        self.frame = ttk.Frame(self.window, padding="10")
+        self.frame.pack(fill=tk.BOTH, expand=True)
+
+        self.server_label = ttk.Label(self.frame, text="AD Server:")
+        self.server_label.grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        
+        self.server_var = tk.StringVar()
+        self.server_dropdown = ttk.Combobox(self.frame, textvariable=self.server_var)
+        self.server_dropdown['values'] = ['LUV', 'QAAD', 'DEVAD']
+        self.server_dropdown.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+        self.server_dropdown.bind("<<ComboboxSelected>>", self.update_server_entry)
+
+
+        # Add an entry field for the selected server
+        self.server_entry_label = ttk.Label(self.frame, text="Selected Server:")    
+        self.server_entry_label.grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        
+        self.server_entry = ttk.Entry(self.frame, width=50)  
+        self.server_entry.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
+
+        self.username_label = ttk.Label(self.frame, text="Username:")
+        self.username_label.grid(row=2, column=0, padx=5, pady=5, sticky="w")
+        self.username_entry = ttk.Entry(self.frame)
+        self.username_entry.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
+
+        self.password_label = ttk.Label(self.frame, text="Password:")
+        self.password_label.grid(row=3, column=0, padx=5, pady=5, sticky="w")
+        self.password_entry = ttk.Entry(self.frame, show="*")
+        self.password_entry.grid(row=3, column=1, padx=5, pady=5, sticky="ew")
+
+        self.search_base_label = ttk.Label(self.frame, text="Search Base:")
+        self.search_base_label.grid(row=4, column=0, padx=5, pady=5, sticky="w")
+        self.search_base_entry = ttk.Entry(self.frame)
+        self.search_base_entry.grid(row=4, column=1, padx=5, pady=5, sticky="ew")
+        self.search_base_entry.insert(0, "DC=SWACORP,DC=COM")  
+
+        self.function_var = tk.StringVar(value="user")
+        self.function_label = ttk.Label(self.frame, text="Function:")
+        self.function_label.grid(row=5, column=0, padx=5, pady=5, sticky="w")
+        self.user_radio = ttk.Radiobutton(self.frame, text="User Lookup", variable=self.function_var, value="user", command=self.toggle_function)
+        self.user_radio.grid(row=5, column=1, padx=2, pady=5, sticky="w")
+        self.group_radio = ttk.Radiobutton(self.frame, text="Group Comparison", variable=self.function_var, value="group", command=self.toggle_function)
+        self.group_radio.grid(row=5, column=1, padx=2, pady=5, sticky="e")
+
+        self.user_search_label = ttk.Label(self.frame, text="User 1 to Search:")
+        self.user_search_label.grid(row=6, column=0, padx=5, pady=5, sticky="w")
+        self.user_search_entry = ttk.Entry(self.frame)
+        self.user_search_entry.grid(row=6, column=1, padx=5, pady=5, sticky="ew")
+
+        self.add_user_btn = ttk.Button(self.frame, text="Add User 2", command=self.add_user)
+        self.add_user_btn.grid(row=7, column=0, padx=5, pady=5)
+
+        self.user2_search_label = ttk.Label(self.frame, text="User 2 to Search:")
+        self.user2_search_label.grid(row=8, column=0, padx=5, pady=5, sticky="w")
+        self.user2_search_entry = ttk.Entry(self.frame)
+        self.user2_search_entry.grid(row=8, column=1, padx=5, pady=5, sticky="ew")
+        self.user2_search_label.grid_remove()
+        self.user2_search_entry.grid_remove()
+
+        self.search_btn = ttk.Button(self.frame, text="Search User", command=self.search_user)
+        self.search_btn.grid(row=9, column=0, padx=5, pady=5)
+
+        self.compare_group1_label = ttk.Label(self.frame, text="Group 1:")
+        self.compare_group1_label.grid(row=10, column=0, padx=5, pady=5, sticky="w")
+        self.compare_group1_entry = ttk.Entry(self.frame)
+        self.compare_group1_entry.grid(row=10, column=1, padx=5, pady=5, sticky="ew")
+
+        self.compare_group2_label = ttk.Label(self.frame, text="Group 2:")
+        self.compare_group2_label.grid(row=11, column=0, padx=5, pady=5, sticky="w")
+        self.compare_group2_entry = ttk.Entry(self.frame)
+        self.compare_group2_entry.grid(row=11, column=1, padx=5, pady=5, sticky="ew")
+
+        self.compare_btn = ttk.Button(self.frame, text="Compare Groups", command=self.compare_groups)
+        self.compare_btn.grid(row=12, column=0, padx=5, pady=5)
+
+        self.result_frame = ttk.Frame(self.frame)
+        self.result_frame.grid(row=13, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
+
+        self.result_text = tk.Text(self.result_frame, height=15, width=80)
+        self.result_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        result_scrollbar = ttk.Scrollbar(self.result_frame, orient="vertical", command=self.result_text.yview)
+        self.result_text.configure(yscrollcommand=result_scrollbar.set)
+        result_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.user1_frame = ttk.Frame(self.frame)
+        self.user1_frame.grid(row=14, column=0, padx=5, pady=5, sticky="ew")
+
+        self.user1_text = tk.Text(self.user1_frame, height=15, width=40)
+        self.user1_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        user1_scrollbar = ttk.Scrollbar(self.user1_frame, orient="vertical", command=self.user1_text.yview)
+        self.user1_text.configure(yscrollcommand=user1_scrollbar.set)
+        user1_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.user2_frame = ttk.Frame(self.frame)
+        self.user2_frame.grid(row=14, column=1, padx=5, pady=5, sticky="ew")
+
+        self.user2_text = tk.Text(self.user2_frame, height=15, width=40)
+        self.user2_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        user2_scrollbar = ttk.Scrollbar(self.user2_frame, orient="vertical", command=self.user2_text.yview)
+        self.user2_text.configure(yscrollcommand=user2_scrollbar.set)
+        user2_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.group1_frame = ttk.Frame(self.frame)
+        self.group1_frame.grid(row=15, column=0, padx=5, pady=5, sticky="ew")
+
+        self.group1_text = tk.Text(self.group1_frame, height=15, width=40)
+        self.group1_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        group1_scrollbar = ttk.Scrollbar(self.group1_frame, orient="vertical", command=self.group1_text.yview)
+        self.group1_text.configure(yscrollcommand=group1_scrollbar.set)
+        group1_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.group2_frame = ttk.Frame(self.frame)
+        self.group2_frame.grid(row=15, column=1, padx=5, pady=5, sticky="ew")
+
+        self.group2_text = tk.Text(self.group2_frame, height=15, width=40)
+        self.group2_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        group2_scrollbar = ttk.Scrollbar(self.group2_frame, orient="vertical", command=self.group2_text.yview)
+        self.group2_text.configure(yscrollcommand=group2_scrollbar.set)
+        group2_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.missing_frame = ttk.Frame(self.frame)
+        self.missing_frame.grid(row=16, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
+
+        self.missing_text = tk.Text(self.missing_frame, height=15, width=80)
+        self.missing_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        missing_scrollbar = ttk.Scrollbar(self.missing_frame, orient="vertical", command=self.missing_text.yview)
+        self.missing_text.configure(yscrollcommand=missing_scrollbar.set)
+        missing_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.options_frame = ttk.Frame(self.frame)
+        self.options_frame.grid(row=0, column=2, rowspan=17, padx=5, pady=5, sticky="ns")
+
+        self.export_user1_btn = ttk.Button(self.options_frame, text="Export User 1 Groups", command=self.export_user1_groups)
+        self.export_user1_btn.grid(row=0, column=0, padx=5, pady=5)
+
+        self.export_user2_btn = ttk.Button(self.options_frame, text="Export User 2 Groups", command=self.export_user2_groups)
+        self.export_user2_btn.grid(row=1, column=0, padx=5, pady=5)
+
+        self.export_missing_btn = ttk.Button(self.options_frame, text="Export Missing Groups", command=self.export_missing_groups)
+        self.export_missing_btn.grid(row=2, column=0, padx=5, pady=5)
+
+
+        # Add a checkbox for enabling debug mode
+        self.debug_var = tk.BooleanVar()
+        self.debug_check = tk.Checkbutton(self.options_frame, text="Enable Debug", variable=self.debug_var)
+        self.debug_check.grid(row=3, column=0, padx=5, pady=5)
+
+        self.toggle_function()
+
+    def update_server_entry(self, event):
+        server_map = {
+            'LUV': 'LUV.AD.SWACORP.COM',
+            'QAAD': 'QAADLUV.SWACORP.COM',
+            'DEVAD': 'DEVAD.SWACORP.COM'
+        }
+        selected_server = self.server_var.get()
+        self.server_entry.delete(0, tk.END)
+        self.server_entry.insert(0, server_map[selected_server])
+
+    def toggle_function(self):
+        if self.function_var.get() == "user":
+            self.compare_group1_entry.configure(state="disabled")
+            self.compare_group2_entry.configure(state="disabled")
+            self.search_btn.configure(state="normal")
+            self.compare_btn.configure(state="disabled")
+            self.result_frame.grid(row=12, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
+            self.group1_frame.grid_remove()
+            self.group2_frame.grid_remove()
+            self.missing_frame.grid_remove()
+        else:
+            self.compare_group1_entry.configure(state="normal")
+            self.compare_group2_entry.configure(state="normal")
+            self.search_btn.configure(state="disabled")
+            self.add_user_btn.configure(state="disabled")
+            self.user_search_entry.configure(state="disabled")
+            self.user2_search_entry.configure(state="disabled")
+            self.compare_btn.configure(state="normal")
+            self.result_frame.grid_remove()
+            self.group1_frame.grid(row=14, column=0, padx=5, pady=5, sticky="ew")
+            self.group2_frame.grid(row=14, column=1, padx=5, pady=5, sticky="ew")
+            self.missing_frame.grid(row=15, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
+
+    def add_user(self):
+            self.user2_search_label.grid()
+            self.user2_search_entry.grid()
+
+    def search_user(self):
+        server = self.server_entry.get()
+        username = self.username_entry.get()
+        password = self.password_entry.get()
+        search_base = self.search_base_entry.get()
+        user_to_search = self.user_search_entry.get()
+        debug = self.debug_var.get()
+
+        try:
+            server_obj = ldap3.Server(server)
+            try: # Attempt to bind with the provided username and password
+                conn = ldap3.Connection(server_obj, user=username, password=password, auto_bind=True, client_strategy=ldap3.RESTARTABLE, auto_referrals=False)
+                if debug and hasattr(self, 'debug_text'):
+                    debug_message = f"LDAP Bind: Server={server}, User={username}\n"
+                    self.debug_text.insert(tk.END, debug_message)
+            except:
+                if self.server_var.get() in self.dn_templates:
+                    for template in self.dn_templates[self.server_var.get()]:
+                        try:
+                            user_dn = template.format(username=username)
+                            conn = ldap3.Connection(server_obj, user=user_dn, password=password, auto_bind=True, client_strategy=ldap3.RESTARTABLE, auto_referrals=False)
+                            if debug and hasattr(self, 'debug_text'):
+                                debug_message = f"LDAP Bind: Server={server}, User={user_dn}\n"
+                                self.debug_text.insert(tk.END, debug_message)
+                            break
+                        except ldap3.core.exceptions.LDAPBindError as e:
+                            log_error("LDAP Bind Error with template",e)
+                            continue
+                    else:
+                        raise ldap3.core.exceptions.LDAPBindError("Automatic bind not successful - invalid credentials")
+                    if debug and hasattr(self, 'debug_text'):
+                        debug_message = f"LDAP Bind: Server={server}, User={username}\n"
+                        self.debug_text.insert(tk.END, debug_message)
+        except ldap3.core.exceptions.LDAPBindError as e:
+            messagebox.showerror("LDAP Bind Error", "Bind not successful - invalid credentials")
+            log_error("LDAP Bind Error",e)
+            if debug and hasattr(self, 'debug_text'):
+                debug_message = f"LDAP Bind Error: {e}\n"
+                self.debug_text.insert(tk.END, debug_message)
+            return
+
+        search_filter = f'(|(sAMAccountName={user_to_search})(cn={user_to_search})(uid={user_to_search}))'
+        if debug and hasattr(self, 'debug_text'):
+            debug_message = f"LDAP Search: Base={search_base}, Filter={search_filter}\n"
+            self.debug_text.insert(tk.END, debug_message)
+
+        conn.search(search_base, search_filter, attributes=ldap3.ALL_ATTRIBUTES)
+
+        if debug and hasattr(self, 'debug_text'):
+            debug_message = f"LDAP Response: {conn.entries}\n"
+            self.debug_text.insert(tk.END, debug_message)
+
+        if not conn.entries:
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, f"User {user_to_search} not found.\n")
+            log_error("User not found.",user_to_search)
+            return
+
+        user_entry = conn.entries[0]
+
+        self.result_text.delete(1.0, tk.END)
+        self.result_text.insert(tk.END, f"User {user_to_search} attributes:\n")
+        for attribute in user_entry.entry_attributes:
+            value = user_entry[attribute]
+            if isinstance(value, bytes):
+                value = value.decode('utf-8')
+            self.result_text.insert(tk.END, f"{attribute}: {value}\n")
+
+        if self.user2_search_entry.winfo_ismapped():
+            user2_to_search = self.user2_search_entry.get()
+            search_filter = f'(|(sAMAccountName={user2_to_search})(cn={user2_to_search})(uid={user2_to_search}))'
+            if debug and hasattr(self, 'debug_text'):
+                debug_message = f"LDAP Search: Base={search_base}, Filter={search_filter}\n"
+                self.debug_text.insert(tk.END, debug_message)
+
+            conn.search(search_base, search_filter, attributes=ldap3.ALL_ATTRIBUTES)
+
+            if debug and hasattr(self, 'debug_text'):
+                debug_message = f"LDAP Response: {conn.entries}\n"
+            log_error("User not found.",user_to_search)
+            return
+
+        user_entry = conn.entries[0]
+
+        self.result_text.delete(1.0, tk.END)
+        self.result_text.insert(tk.END, f"User {user_to_search} attributes:\n")
+        for attribute in user_entry.entry_attributes:
+            value = user_entry[attribute]
+            if isinstance(value, bytes):
+                value = value.decode('utf-8')
+            self.result_text.insert(tk.END, f"{attribute}: {value}\n")
+
+        if self.user2_search_entry.winfo_ismapped():
+            user2_to_search = self.user2_search_entry.get()
+            search_filter = f'(|(sAMAccountName={user2_to_search})(cn={user2_to_search})(uid={user2_to_search}))'
+            if debug and hasattr(self, 'debug_text'):
+                debug_message = f"LDAP Search: Base={search_base}, Filter={search_filter}\n"
+                self.debug_text.insert(tk.END, debug_message)
+
+            conn.search(search_base, search_filter, attributes=ldap3.ALL_ATTRIBUTES)
+
+            if debug and hasattr(self, 'debug_text'):
+                debug_message = f"LDAP Response: {conn.entries}\n"
+                self.debug_text.insert(tk.END, debug_message)
+
+            if not conn.entries:
+                self.user2_text.delete(1.0, tk.END)
+                self.user2_text.insert(tk.END, f"User {user2_to_search} not found.\n")
+                log_error(f"User not found.",user2_to_search)
+                return
+
+            user2_entry = conn.entries[0]
+
+            self.user1_text.delete(1.0, tk.END)
+            self.user1_text_label = tk.Label(self.user1_frame, text=f"User {user_to_search} Attributes:")
+            self.user1_text_label.pack()
+            self.user1_text.insert(tk.END, f"User {user_to_search} attributes:\n")
+            for attribute in user_entry.entry_attributes:
+                value = user_entry[attribute]
+                if isinstance(value, bytes):
+                    value = value.decode('utf-8')
+                self.user1_text.insert(tk.END, f"{attribute}: {value}\n")
+
+            self.user2_text.delete(1.0, tk.END)
+            self.user2_text_label = tk.Label(self.user2_frame, text=f"User {user2_to_search} Attributes:")
+            self.user2_text_label.pack()
+            self.user2_text.insert(tk.END, f"User {user2_to_search} attributes:\n")
+            for attribute in user2_entry.entry_attributes:
+                value = user2_entry[attribute]
+                if isinstance(value, bytes):
+                    value = value.decode('utf-8')
+                self.user2_text.insert(tk.END, f"{attribute}: {value}\n")
+
+            user1_groups = set(user_entry['memberOf']) if 'memberOf' in user_entry else set()
+            user2_groups = set(user2_entry['memberOf']) if 'memberOf' in user2_entry else set()
+
+            user1_groups = {group.decode('utf-8') if isinstance(group, bytes) else group for group in user1_groups}
+            user2_groups = {group.decode('utf-8') if isinstance(group, bytes) else group for group in user2_groups}
+
+            if not user1_groups:
+                self.user1_text.insert(tk.END, "No groups found.\n")
+            else:
+                self.user1_text.insert(tk.END, "Groups:\n")
+                for group in user1_groups:
+                    self.user1_text.insert(tk.END, f"{group}\n")
+
+            if not user2_groups:
+                self.user2_text.insert(tk.END, "No groups found.\n")
+            else:
+                self.user2_text.insert(tk.END, "Groups:\n")
+                for group in user2_groups:
+                    self.user2_text.insert(tk.END, f"{group}\n")
+
+
+                only_in_user1 = user1_groups - user2_groups
+
+                self.missing_text.delete(1.0, tk.END)
+                self.missing_text_label = tk.Label(self.missing_frame, text=f"Groups that User {user_to_search} has but User {user2_to_search} is missing:")
+                self.missing_text_label.pack()
+                self.missing_text.insert(tk.END, f"Groups that User {user_to_search} has but User {user2_to_search} is missing:\n")
+                for group in only_in_user1:
+                    self.missing_text.insert(tk.END, f"{group}\n")
+
+    def compare_groups(self):
+        server = self.server_entry.get()
+        username = self.username_entry.get()
+        password = self.password_entry.get()
+        search_base = self.search_base_entry.get()
+        group1 = self.compare_group1_entry.get()
+        group2 = self.compare_group2_entry.get()
+
+        server = ldap3.Server(server)
+        conn = ldap3.Connection(server, user=username, password=password, auto_bind=True)
+
+        if group1:
+            conn.search(search_base, f'(cn={group1})', attributes=['member'])
+            if not conn.entries:
+                self.group1_text.delete(1.0, tk.END)
+                self.group1_text.insert(tk.END, f"Group {group1} not found.\n")
+                return
+            group1_members = set(conn.entries[0].member)
+        else:
+            group1_members = set()
+
+        if group2:
+            conn.search(search_base, f'(cn={group2})', attributes=['member'])
+            if not conn.entries:
+                self.group2_text.delete(1.0, tk.END)
+                self.group2_text.insert(tk.END, f"Group {group2} not found.\n")
+                return
+            group2_members = set(conn.entries[0].member)
+        else:
+            group2_members = set()
+
+        self.group1_text.delete(1.0, tk.END)
+        self.group2_text.delete(1.0, tk.END)
+
+        if group1 and not group2:
+            self.group1_text.insert(tk.END, f"Members of Group 1 ({group1}):\n")
+            for member in group1_members:
+                self.group1_text.insert(tk.END, f"{member}\n")
+        elif group1 and group2:
+            only_in_group1 = group1_members - group2_members
+            only_in_group2 = group2_members - group1_members
+
+            self.group1_text.insert(tk.END, f"Members only in {group1}:\n")
+            for member in only_in_group1:
+                self.group1_text.insert(tk.END, f"{member}\n")
+
+            self.group2_text.insert(tk.END, f"Members only in {group2}:\n")
+            for member in only_in_group2:
+                self.group2_text.insert(tk.END, f"{member}\n")
+        else:
+            self.group1_text.insert(tk.END, f"Members of Group 1 ({group1}):\n")
+            for member in group1_members:
+                self.group1_text.insert(tk.END, f"{member}\n")
+
+            self.group2_text.insert(tk.END, f"Members of Group 2 ({group2}):\n")
+            for member in group2_members:
+                self.group2_text.insert(tk.END, f"{member}\n")
+
+            self.missing_text.delete(1.0, tk.END)
+            self.missing_text.insert(tk.END, f"Members missing between {group1} and {group2}:\n")
+            for member in only_in_group1.union(only_in_group2):
+                self.missing_text.insert(tk.END, f"{member}\n")
+
+    def export_user1_groups(self):
+        user1_sAMAccountName = self.user_search_entry.get()
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        filename = f"{user1_sAMAccountName}_groups_{timestamp}.csv"
+        user1_groups = self.user1_text.get(1.0, tk.END).strip().split('\n')
+        with open(filename, 'w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(["User 1 Groups"])
+            for group in user1_groups:
+                writer.writerow([group])
+        messagebox.showinfo("Export Successful", f"User 1 groups have been exported successfully to {filename}.")
+
+    def export_user2_groups(self):
+        user2_sAMAccountName = self.user2_search_entry.get()
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        filename = f"{user2_sAMAccountName}_groups_{timestamp}.csv"
+        user2_groups = self.user2_text.get(1.0, tk.END).strip().split('\n')
+        with open(filename, 'w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(["User 2 Groups"])
+            for group in user2_groups:
+                writer.writerow([group])
+        messagebox.showinfo("Export Successful", f"User 2 groups have been exported successfully to {filename}.")
+
+    def export_missing_groups(self):
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        filename = f"missing_groups_{timestamp}.csv"
+        missing_groups = self.missing_text.get(1.0, tk.END).strip().split('\n')
+        with open(filename, 'w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(["Missing Groups"])
+            for group in missing_groups:
+                writer.writerow([group])
+        messagebox.showinfo("Export Successful", f"Missing groups have been exported successfully to {filename}.")
 
 def main():
     global first_run
@@ -3217,7 +3760,7 @@ def main():
 
     def display_message():
         try:
-            motd = "4oCcV2UgaGF2ZSBhIHN0cmF0ZWdpYyBwbGFuIOKAlCBpdOKAmXMgY2FsbGVkIGRvaW5nIHRoaW5ncy7igJ0K4oCcWW91ciBwZW9wbGUgY29tZSBmaXJzdCwgYW5kIGlmIHlvdSB0cmVhdCB0aGVtIHJpZ2h0LCB0aGV54oCZbCB0cmVhdCB0aGVtIGN1c3RvbWVycyByaWdodC7igJ0K4oCcVGhlIGVzc2VudGlhbCBkaWZmZXJlbmNlIGluIHNlcnZpY2UgaXMgbm90IG1hY2hpbmVzIG9yIOKAmHRoaW5ncy7igJkgVGhlIGVzc2VudGlhbCBkaWZmZXJlbmNlIGlzIG1pbmRzLCBoZWFydHMsIHNwaXJpdHMsIGFuZCBzb3Vscy7igJ0K4oCcWW91IGhhdmUgdG8gdHJlYXQgeW91ciBlbXBsb3llZXMgbGlrZSBjdXN0b21lcnMu4oCdCuKAnFlvdSBkb27igJl0IGhpcmUgZm9yIHNraWxscywgeW91IGhpcmUgZm9yIGF0dGl0dWRlLiBZb3UgY2FuIGFsd2F5cyB0ZWFjaCBza2lsbHMu4oCdCuKAnEEgY29tcGFueSBpcyBzdHJvbmdlciBpZiBpdCBpcyBib3VuZCBieSBsb3ZlIHJhdGhlciB0aGFuIGJ5IGZlYXIu4oCdCuKAnFRoaW5rIHNtYWxsIGFuZCBhY3Qgc21hbGwsIGFuZCB3ZeKAmWxsIGdldCBiaWdnZXIuIFRoaW5rIGJpZyBhbmQgYWN0IGJpZywgYW5kIHdl4oCZbGwgZ2V0IHNtYWxsZXIu4oCdCuKAnElmIHlvdeKAmXJlIGNyYXp5IGVub3VnaCB0byBkbyB3aGF0IHlvdSBsb3ZlIGZvciBhIGxpdmluZywgdGhlbiB5b3XigJlyZSBib3VuZCB0byBjcmVhdGUgYSBsaWZlIHRoYXQgbWF0dGVycy7igJ0K4oCcSSB0ZWxsIG15IGVtcGxveWVlcyB0aGF0IHdl4oCZcmUgaW4gdGhlIHNlcnZpY2UgYnVzaW5lc3MsIGFuZCBpdOKAmXMgaW5jaWRlbnRhbCB0aGF0IHdlIGZseSBhaXJwbGFuZXMu4oCdCuKAnEp1c3QgYmVjYXVzZSB5b3UgZG9u4oCZdCBhbm5vdW5jZSB5b3VyIHBsYW4gZG9lc27igJl0IG1lYW4geW91IGRvbuKAmXQgaGF2ZSBvbmUu4oCdCuKAnEkgZm9yZ2l2ZSBhbGwgcGVyc29uYWwgd2Vha25lc3NlcyBleGNlcHQgZWdvbWFuaWEgYW5kIHByZXRlbnNpb24u4oCdCuKAnElmIHlvdSBkb27igJl0IHRyZWF0IHlvdXIgb3duIHBlb3BsZSB3ZWxsLCB0aGV5IHdvbuKAmXQgdHJlYXQgb3RoZXIgcGVvcGxlIHdlbGwu4oCdCuKAnFRoZSBidXNpbmVzcyBvZiBidXNpbmVzcyBpcyBwZW9wbGUu4oCdCuKAnElmIHlvdSBjcmVhdGUgYW4gZW52aXJvbm1lbnQgd2hlcmUgdGhlIHBlb3BsZSB0cnVseSBwYXJ0aWNpcGF0ZSwgeW91IGRvbuKAmXQgbmVlZCBjb250cm9sLiBUaGV5IGtub3cgd2hhdCBuZWVkcyB0byBiZSBkb25lIGFuZCB0aGV5IGRvIGl0LuKAnQrigJxMZWFkaW5nIGFuZCBvcmdhbml6YXRpb24gaXMgYXMgbXVjaCBhYm91dCBzb3VsIGFzIGl0IGlzIGFib3V0IHN5c3RlbXMuIEVmZmVjdGl2ZSBsZWFkZXJzaGlwIGZpbmRzIGl0cyBzb3VyY2UgaW4gdW5kZXJzdGFuZGluZy7igJ0K4oCcSSBsZWFybmVkIGl0IGJ5IGRvaW5nIGl0LCBhbmQgSSB3YXMgc2NhcmVkIHRvIGRlYXRoLuKAnQrigJxJIHRob3VnaHQgbXkgZ3JlYXRlc3QgbW9tZW50IGluIGJ1c2luZXNzIHdhcyB3aGVuIHRoZSBmaXJzdCBTb3V0aHdlc3QgYWlycGxhbmUgYXJyaXZlZCBhZnRlciBmb3VyIHllYXJzIG9mIGxpdGlnYXRpb24gYW5kIEkgd2Fsa2VkIHVwIHRvIGl0IGFuZCBJIGtpc3NlZCB0aGF0IGJhYnkgb24gdGhlIGxpcHMgYW5kIEkgY3JpZWQu4oCdCiJXaGVuIGl0IGNvbWVzIHRvIGdldHRpbmdzIGRvbmUsIHdlIG5lZWQgZmV3ZXIgYXJjaGl0ZWN0cyBhbmQgbW9yZSBicmlja2xheWVycy4iCg=="
+            motd = "4oCcV2UgaGF2ZSBhIHN0cmF0ZWdpYyBwbGFuIOKAlCBpdOKAmXMgY2FsbGVkIGRvaW5nIHRoaW5ncy7igJ0K4oCcWW91ciBwZW9wbGUgY29tZSBmaXJzdCwgYW5kIGlmIHlvdSB0cmVhdCB0aGVtIHJpZ2h0LCB0aGV54oCZbCB0cmVhdCB0aGVtIGN1c3RvbWVycyByaWdodC7igJ0K4oCcVGhlIGVzc2VudGlhbCBkaWZmZXJlbmNlIGluIHNlcnZpY2UgaXMgbm90IG1hY2hpbmVzIG9yIOKAmHRoaW5ncy7igJkgVGhlIGVzc2VudGlhbCBkaWZmZXJlbmNlIGlzIG1pbmRzLCBoZWFydHMsIHNwaXJpdHMsIGFuZCBzb3Vscy7igJ0K4oCcWW91IGhhdmUgdG8gdHJlYXQgeW91ciBlbXBsb3llZXMgbGlrZSBjdXN0b21lcnMu4oCdCuKAnFlvdSBkb27igJl0IGhpcmUgZm9yIHNraWxscywgeW91IGhpcmUgZm9yIGF0dGl0dWRlLiBZb3UgY2FuIGFsd2F5cyB0ZWFjaCBza2lsbHMu4oCdCuKAnEEgY29tcGFueSBpcyBzdHJvbmdlciBpZiBpdCBpcyBib3VuZCBieSBsb3ZlIHJhdGhlciB0aGFuIGJ5IGZlYXIu4oCdCuKAnFRoaW5rIHNtYWxsIGFuZCBhY3Qgc21hbGwsIGFuZCB3ZeKAmWxsIGdldCBiaWdnZXIuIFRoaW5rIGJpZyBhbmQgYWN0IGJpZywgYW5kIHdl4oCZbGwgZ2V0IHNtYWxsZXIu4oCdCuKAnElmIHlvdeKAmXJlIGNyYXp5IGVub3VnaCB0byBkbyB3aGF0IHlvdSBsb3ZlIGZvciBhIGxpdmluZywgdGhlbiB5b3XigJlyZSBib3VuZCB0byBjcmVhdGUgYSBsaWZlIHRoYXQgbWF0dGVycy7igJ0K4oCcSSB0ZWxsIG15IGVtcGxveWVlcyB0aGF0IHdl4oCZcmUgaW4gdGhlIHNlcnZpY2UgYnVzaW5lc3MsIGFuZCBpdOKAmXMgaW5jaWRlbnRhbCB0aGF0IHdlIGZseSBhaXJwbGFuZXMu4oCdCuKAnEp1c3QgYmVjYXVzZSB5b3UgZG9u4oCZdCBhbm5vdW5jZSB5b3VyIHBsYW4gZG9lc27igJl0IG1lYW4geW91IGRvbuKAmXQgaGF2ZSBvbmUu4oCdCuKAnEkgZm9yZ2l2ZSBhbGwgcGVyc29uYWwgd2Vha25lc3NlcyBleGNlcHQgZWdvbWFuaWEgYW5kIHByZXRlbnNpb24u4oCdCuKAnElmIHlvdSBkb27igJl0IHRyZWF0IHlvdXIgb3duIHBlb3BsZSB3ZWxsLCB0aGV5IHdvbuKAmXQgdHJlYXQgb3RoZXIgcGVvcGxlIHdlbGwu4oCdCuKAnFRoZSBidXNpbmVzcyBvZiBidXNpbmVzcyBpcyBwZW9wbGUu4oCdCuKAnElmIHlvdSBjcmVhdGUgYW4gZW52aXJvbm1lbnQgd2hlcmUgdGhlIHBlb3BsZSB0cnVseSBwYXJ0aWNpcGF0ZSwgeW91IGRvbuKAmXQgbmVlZCBjb250cm9sLiBUaGV5IGtub3cgd2hhdCBuZWVkcyB0byBiZSBkb25lIGFuZCB0aGV5IGRvIGl0LuKAnQrigJxMZWFkaW5nIGFuZCBvcmdhbml6YXRpb24gaXMgYXMgbXVjaCBhYm91dCBzb3VsIGFzIGl0IGlzIGFib3V0IHN5c3RlbXMuIEVmZmVjdGl2ZSBsZWFkZXJzaGlwIGZpbmRzIGl0cyBzb3VyY2UgaW4gdW5kZXJzdGFuZGluZy7igJ0K4oCcSSBsZWFybmVkIGl0IGJ5IGRvaW5nIGl0LCBhbmQgSSB3YXMgc2NhcmVkIHRvIGRlYXRoLuKAnQrigJxJIHRob3VnaHQgbXkgZ3JlYXRlc3QgbW9tZW50IGluIGJ1c2luZXNzIHdhcyB3aGVuIHRoZSBmaXJzdCBTb3V0aHdlc3QgYWlycGxhbmUgYXJyaXZlZCBhZnRlciBmb3VyIHllYXJzIG9mIGxpdGlnYXRpb24gYW5kIEkgd2Fsa2VkIHVwIHRvIGl0IGFuZCBJIGtpc3NlZCB0aGF0IGJhYnkgb24gdGhlIGxpcHMgYW5kIEkgY3JpZWQu4oCdCiJXaGVuIGl0IGNvbWVzIHRvIGdldHRpbmcgdGhpbmdzIGRvbmUsIHdlIG5lZWQgZmV3ZXIgYXJjaGl0ZWN0cyBhbmQgbW9yZSBicmlja2xheWVycy4iCg=="
             decoded_motd = base64.b64decode(motd).decode('utf-8')
             sayings = decoded_motd.split("\n")
             message = random.choice(sayings).strip()
