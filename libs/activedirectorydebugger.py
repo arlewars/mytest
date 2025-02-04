@@ -1,6 +1,11 @@
 import tkinter as tk
 from tkinter import ttk
 import ldap3
+from datetime import datetime, timedelta
+import json
+import csv
+from tkinter import messagebox
+
 
 class ActiveDirectoryDebugger:
 
@@ -19,20 +24,76 @@ class ActiveDirectoryDebugger:
             "cn={username},ou=security operations,ou=security,ou=admin,dc=devad,dc=devad,dc=swacorp,dc=com"
         ]
     }
+    # Styling configurations
+    NORD_STYLES = {
+        "standard": {
+            "background": "#2C2C2E",
+            "foreground": "#F2F2F7",
+            "highlight": "#1E4BC3",
+            "error": "#FF453A",
+            "header": "#c1cfff",
+            "row_odd": "#C7E0F4",
+            "row_even": "#F2F7FB",
+            "button": "#FFCA4F",
+            "invert_button": "#5AC8FA",
+            "button_background": "#0A84FF"
+        },
+        "frost": {
+            "background": "#8FBCBB",
+            "foreground": "#2E3440",
+            "highlight": "#88C0D0",
+            "error": "#BF616A",
+            "header": "#81a1c1",
+            "row_odd": "#A3BE8C",
+            "row_even": "#EBCB8B",
+            "button": "#5E81AC",
+            "invert_button": "#D08770",
+            "button_background": "#88c0d0"
+        },
+        "aurora": {
+            "background": "#A3BE8C",
+            "foreground": "#2E3440",
+            "highlight": "#88C0D0",
+            "error": "#BF616A",
+            "header": "#b48ead",
+            "row_odd": "#A3BE8C",
+            "row_even": "#EBCB8B",
+            "button": "#5E81AC",
+            "invert_button": "#D08770",
+            "button_background": "#ebcb8b"
+        }
+    }
 
-    def __init__(self, master, theme):
+    DEFAULT_THEME = {
+            "background": "#2C2C2E",
+            "foreground": "#F2F2F7",
+            "highlight": "#1E4BC3",
+            "error": "#FF453A",
+            "header": "#c1cfff",
+            "row_odd": "#C7E0F4",
+            "row_even": "#F2F7FB",
+            "button": "#FFCA4F",
+            "invert_button": "#5AC8FA",
+            "button_background": "#0A84FF"
+    }
+    
+
+
+
+    def __init__(self, master, theme="standard"):
         self.master = master
         self.window = tk.Toplevel()
         self.window.title("Active Directory Debugger")
         self.window.geometry("1000x800")
-        self.theme = theme
+        self.theme = theme if theme in self.NORD_STYLES else "standard"
         self.apply_theme()
+        self.window.resizable(True, True)
         self.setup_ui()
 
     def apply_theme(self):
         style = ttk.Style()
         style.theme_use("clam")
-        colors = NORD_STYLES[self.theme]
+        colors = self.NORD_STYLES[self.theme]
         style.configure("TFrame", background=colors["background"])
         style.configure("TLabelFrame", background=colors["background"], foreground=colors["foreground"])
         style.configure("Treeview", background=colors["background"], foreground=colors["foreground"], fieldbackground=colors["background"])
@@ -58,9 +119,51 @@ class ActiveDirectoryDebugger:
                 self.debug_window.destroy()
                 del self.debug_text  # Ensure debug_text is deleted when window is closed
 
+
+    def log_error(self,message, exception):
+        error_entry = {
+            "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "message": message,
+            "exception": str(exception)
+        }
+        log_file = "aderrors.json"
+        
+        #logger.error(json.dumps(error_entry))
+        
+        # Also write the error to errors.json
+        try:
+            with open("aderrors.json", "r") as file:
+                errors = json.load(file)
+        except (FileNotFoundError, json.JSONDecodeError):
+            errors = []
+        
+        errors.append(error_entry)
+        with open(log_file, "w") as file:
+            json.dump(errors, file, indent=4)
+
+
     def setup_ui(self):
-        self.frame = ttk.Frame(self.window, padding="10")
+        self.canvas = tk.Canvas(self.window)
+        self.scrollbar = ttk.Scrollbar(self.window, orient="vertical", command=self.canvas.yview)
+        self.scrollable_frame = ttk.Frame(self.canvas)
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox("all")
+            )
+        )
+
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.scrollbar.pack(side="right", fill="y")
+
+        self.frame = ttk.Frame(self.scrollable_frame, padding="10")
         self.frame.pack(fill=tk.BOTH, expand=True)
+        self.frame.grid_rowconfigure(0, weight=1)
+        self.frame.grid_columnconfigure(1, weight=1)
 
         self.server_label = ttk.Label(self.frame, text="AD Server:")
         self.server_label.grid(row=0, column=0, padx=5, pady=5, sticky="w")
@@ -135,7 +238,9 @@ class ActiveDirectoryDebugger:
         self.compare_btn.grid(row=12, column=0, padx=5, pady=5)
 
         self.result_frame = ttk.Frame(self.frame)
-        self.result_frame.grid(row=13, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
+        self.result_frame.grid(row=13, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+        self.result_frame.grid_rowconfigure(0, weight=1)
+        self.result_frame.grid_columnconfigure(0, weight=1)
 
         self.result_text = tk.Text(self.result_frame, height=15, width=80)
         self.result_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -145,7 +250,9 @@ class ActiveDirectoryDebugger:
         result_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         self.user1_frame = ttk.Frame(self.frame)
-        self.user1_frame.grid(row=14, column=0, padx=5, pady=5, sticky="ew")
+        self.user1_frame.grid(row=14, column=0, padx=5, pady=5, sticky="nsew")
+        self.user1_frame.grid_rowconfigure(0, weight=1)
+        self.user1_frame.grid_columnconfigure(0, weight=1)
 
         self.user1_text = tk.Text(self.user1_frame, height=15, width=40)
         self.user1_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -155,7 +262,9 @@ class ActiveDirectoryDebugger:
         user1_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         self.user2_frame = ttk.Frame(self.frame)
-        self.user2_frame.grid(row=14, column=1, padx=5, pady=5, sticky="ew")
+        self.user2_frame.grid(row=14, column=1, padx=5, pady=5, sticky="nsew")
+        self.user2_frame.grid_rowconfigure(0, weight=1)
+        self.user2_frame.grid_columnconfigure(0, weight=1)
 
         self.user2_text = tk.Text(self.user2_frame, height=15, width=40)
         self.user2_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -165,7 +274,9 @@ class ActiveDirectoryDebugger:
         user2_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         self.group1_frame = ttk.Frame(self.frame)
-        self.group1_frame.grid(row=15, column=0, padx=5, pady=5, sticky="ew")
+        self.group1_frame.grid(row=15, column=0, padx=5, pady=5, sticky="nsew")
+        self.group1_frame.grid_rowconfigure(0, weight=1)
+        self.group1_frame.grid_columnconfigure(0, weight=1)
 
         self.group1_text = tk.Text(self.group1_frame, height=15, width=40)
         self.group1_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -175,7 +286,9 @@ class ActiveDirectoryDebugger:
         group1_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         self.group2_frame = ttk.Frame(self.frame)
-        self.group2_frame.grid(row=15, column=1, padx=5, pady=5, sticky="ew")
+        self.group2_frame.grid(row=15, column=1, padx=5, pady=5, sticky="nsew")
+        self.group2_frame.grid_rowconfigure(0, weight=1)
+        self.group2_frame.grid_columnconfigure(0, weight=1)
 
         self.group2_text = tk.Text(self.group2_frame, height=15, width=40)
         self.group2_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -185,7 +298,9 @@ class ActiveDirectoryDebugger:
         group2_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         self.missing_frame = ttk.Frame(self.frame)
-        self.missing_frame.grid(row=16, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
+        self.missing_frame.grid(row=16, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+        self.missing_frame.grid_rowconfigure(0, weight=1)
+        self.missing_frame.grid_columnconfigure(0, weight=1)
 
         self.missing_text = tk.Text(self.missing_frame, height=15, width=80)
         self.missing_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -196,6 +311,8 @@ class ActiveDirectoryDebugger:
 
         self.options_frame = ttk.Frame(self.frame)
         self.options_frame.grid(row=0, column=2, rowspan=17, padx=5, pady=5, sticky="ns")
+        self.options_frame.grid_rowconfigure(0, weight=1)
+        self.options_frame.grid_columnconfigure(0, weight=1)
 
         self.export_user1_btn = ttk.Button(self.options_frame, text="Export User 1 Groups", command=self.export_user1_groups)
         self.export_user1_btn.grid(row=0, column=0, padx=5, pady=5)
@@ -212,7 +329,14 @@ class ActiveDirectoryDebugger:
         self.debug_check = tk.Checkbutton(self.options_frame, text="Enable Debug", variable=self.debug_var)
         self.debug_check.grid(row=3, column=0, padx=5, pady=5)
 
+        self.close_btn = ttk.Button(self.options_frame, text="Close", command=self.close_application)
+        self.close_btn.grid(row=4, column=0, padx=5, pady=5)
+
         self.toggle_function()
+
+    def close_application(self):
+        self.window.destroy()
+        self.master.quit()
 
     def update_server_entry(self, event):
         server_map = {
@@ -277,7 +401,7 @@ class ActiveDirectoryDebugger:
                                 self.debug_text.insert(tk.END, debug_message)
                             break
                         except ldap3.core.exceptions.LDAPBindError as e:
-                            log_error("LDAP Bind Error with template",e)
+                            self.log_error("LDAP Bind Error with template",e)
                             continue
                     else:
                         raise ldap3.core.exceptions.LDAPBindError("Automatic bind not successful - invalid credentials")
@@ -286,7 +410,7 @@ class ActiveDirectoryDebugger:
                         self.debug_text.insert(tk.END, debug_message)
         except ldap3.core.exceptions.LDAPBindError as e:
             messagebox.showerror("LDAP Bind Error", "Bind not successful - invalid credentials")
-            log_error("LDAP Bind Error",e)
+            self.log_error("LDAP Bind Error",e)
             if debug and hasattr(self, 'debug_text'):
                 debug_message = f"LDAP Bind Error: {e}\n"
                 self.debug_text.insert(tk.END, debug_message)
@@ -306,7 +430,7 @@ class ActiveDirectoryDebugger:
         if not conn.entries:
             self.result_text.delete(1.0, tk.END)
             self.result_text.insert(tk.END, f"User {user_to_search} not found.\n")
-            log_error("User not found.",user_to_search)
+            self.log_error("User not found.",user_to_search)
             return
 
         user_entry = conn.entries[0]
@@ -330,7 +454,7 @@ class ActiveDirectoryDebugger:
 
             if debug and hasattr(self, 'debug_text'):
                 debug_message = f"LDAP Response: {conn.entries}\n"
-            log_error("User not found.",user_to_search)
+            self.log_error("User not found.",user_to_search)
             return
 
         user_entry = conn.entries[0]
@@ -359,7 +483,7 @@ class ActiveDirectoryDebugger:
             if not conn.entries:
                 self.user2_text.delete(1.0, tk.END)
                 self.user2_text.insert(tk.END, f"User {user2_to_search} not found.\n")
-                log_error(f"User not found.",user2_to_search)
+                self.log_error(f"User not found.",user2_to_search)
                 return
 
             user2_entry = conn.entries[0]

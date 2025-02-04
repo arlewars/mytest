@@ -1,0 +1,17 @@
+[
+    {
+        "timestamp": "2025-02-04 14:49:17",
+        "message": "User not found.",
+        "exception": "mel"
+    },
+    {
+        "timestamp": "2025-02-04 14:49:48",
+        "message": "User not found.",
+        "exception": "mel"
+    },
+    {
+        "timestamp": "2025-02-04 14:50:49",
+        "message": "User not found.",
+        "exception": "mel"
+    }
+]

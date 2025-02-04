@@ -1302,10 +1302,6 @@ class OIDCDebugger:
         self.server_port = 4443
         ssl_context = create_combined_ssl_context(CA_path, cert_path) if cert_path else None
                # Create a temporary file for logging
-        if not os.path.exists("OIDClog.txt"):
-            with open("OIDClog.txt", "w") as oidcfile:
-                oidcfile.write("Logging OIDC process.")
-        self.log_file = open("OIDClog.txt", "a")
         self.setup_ui()
 
     def apply_theme(self):
@@ -1349,10 +1345,6 @@ class OIDCDebugger:
         self.aud_entry = ttk.Entry(self.frame, width=50)
         self.aud_entry.grid(row=6, column=1, padx=0, pady=0, sticky="ew")
 
-        self.oauth_checkbox_var = tk.BooleanVar(value=False)
-        self.oauth_checkbox = ttk.Checkbutton(self.frame, text="OAUTH Only", variable=self.oauth_checkbox_var, command=self.toggle_options)
-        self.oauth_checkbox.grid(row=7, column=0, padx=0, pady=0, sticky="w")
-
         self.use_pkce = tk.BooleanVar(value=True)
         self.use_pkce_checkbutton = ttk.Checkbutton(self.frame, text="Use PKCE", variable=self.use_pkce)
         self.use_pkce_checkbutton.grid(row=7, column=1, padx=0, pady=0, sticky="w")
@@ -1369,9 +1361,6 @@ class OIDCDebugger:
         self.log_oidc_process = tk.BooleanVar()
         ttk.Checkbutton(self.frame, text="Log OIDC process\n in separate window", variable=self.log_oidc_process).grid(row=7, column=1, padx=0, pady=2, sticky="e")
     
-        self.get_oauth_tokens_btn = ttk.Button(self.frame, text="Get OAuth Token", command=self.get_oauth_tokens)
-        self.get_oauth_tokens_btn.grid(row=9, column=1, padx=0, pady=2, sticky="e")
-
         self.generate_request_btn = ttk.Button(self.frame, text="Generate Auth Request", command=self.generate_auth_request)
         self.generate_request_btn.grid(row=9, column=0, padx=0, pady=2, sticky="w")
 
@@ -1430,20 +1419,6 @@ class OIDCDebugger:
             self.oidc_log_text.configure(yscrollcommand=oidc_log_scrollbar.set)
             oidc_log_scrollbar.grid(row=0, column=1, sticky="ns")
 
-    def toggle_options(self): 
-        if self.oauth_checkbox_var.get():
-            self.use_pkce.set(value=False)
-            state = "disabled"
-        else:
-            self.use_pkce.set(value=True)
-            state = "normal"
-        
-        self.use_pkce_checkbutton.configure(state=state) 
-        self.client_secret_post_radiobutton.configure(state=state)
-        self.client_secret_basic_radiobutton.configure(state=state)
-        self.submit_btn.configure(state=state)
-        self.generate_request_btn.configure(state=state)
-
     def update_endpoint_entry(self, event):
         selected_value = self.well_known_var.get()
         if selected_value:
@@ -1497,82 +1472,6 @@ class OIDCDebugger:
 
 
         return well_known_data
-
-
-    def get_oauth_tokens(self):
-        OAUTH_DEBUG = True
-        cert_path = certifi.where()
-        CA_path = certifi.where()
-        ssl_context = create_combined_ssl_context(CA_path, cert_path) #if cert_path else None
-
-        config = self.fetch_well_known()
-        self.display_well_known_response(config)
-        if self.log_oidc_process.get():
-            self.oidc_log_text.insert(tk.END, f"Well-known configuration response:\n{json.dumps(config, indent=4)}\n")
-
-        auth_endpoint = config.get("authorization_endpoint")
-        token_endpoint = config.get("token_endpoint")
-        introspection_endpoint = config.get("introspection_endpoint")
-
-        client_id = self.client_id_entry.get().strip()
-        client_secret = self.client_secret_entry.get().strip()
-        scopes = self.scope_entry.get().strip()
-        aud = self.aud_entry.get().strip()
-
-        if OAUTH_DEBUG:
-            print(f"Auth Endpoint: {auth_endpoint}")
-            print(f"Token Endpoint: {token_endpoint}")
-            print(f"Introspection Endpoint: {introspection_endpoint}")
-            print(f"Client ID: {client_id}")
-            print(f"Client Secret: {client_secret}")
-            print(f"Scopes: {scopes}")
-            print(f"Audience: {aud}")
-
-        if not all([token_endpoint, client_id, client_secret, scopes]):
-            self.response_text.delete(1.0, tk.END)
-            self.response_text.insert(tk.END, "Please fill in all fields to get tokens.")
-            return
-
-        data = {
-            'client_id': client_id,
-            'client_secret': client_secret,
-            'grant_type': 'client_credentials',
-            'scope': scopes
-        }
-        if aud:
-           data = {
-            'client_id': client_id,
-            'client_secret': client_secret,
-            'grant_type': 'client_credentials',
-            'scope': scopes,
-            'aud': aud
-            }
-
-        try:
-            response = requests.post(token_endpoint, data=data, verify=self.ssl_context)
-        except Exception as ssl_error:
-            response = requests.post(token_endpoint, data=data, verify=False)
-
-        response.raise_for_status()
-        token_data = response.json()
-        access_token = token_data.get('access_token')
-        self.response_text.insert(tk.END, f"Access Token:\n{access_token}\n\n")
-        self.response_text.insert(tk.END, f"Token Type:\n{token_data.get('token_type')}\n\n")
-        self.response_text.insert(tk.END, f"Expires In:\n{token_data.get('expires_in')}\n\n")
-
-        if access_token:
-            try:
-                decoded_token = self.decode_jwt(access_token)
-                self.response_text.insert(tk.END, f"Decoded Access Token:\n{decoded_token}\n\n")
-            except Exception as e:
-                self.response_text.insert(tk.END, f"Error decoding access token: {e}\n")
-
-        if self.log_oidc_process.get():
-            self.oidc_log_text.insert(tk.END, f"Well-known configuration response:\n{json.dumps(config, indent=4)}\n")
-            self.oidc_log_text.insert(tk.END, f"Access Token:\n{access_token}\n\n")
-            self.oidc_log_text.insert(tk.END, f"Token Type:\n{token_data.get('token_type')}\n\n")
-            self.oidc_log_text.insert(tk.END, f"Expires In:\n{token_data.get('expires_in')}\n\n")
-            self.oidc_log_text.insert(tk.END, f"Decoded Access Token:\n{decoded_token}\n\n")
 
     def generate_auth_request(self):
         if self.log_oidc_process.get():
@@ -1679,9 +1578,18 @@ class OIDCDebugger:
     def encode_params(self, params):
         return '&'.join([f"{k}={requests.utils.quote(v)}" for k, v in params.items()])
 
+    def submit_and_log(self):
+        if not os.path.exists("oidc_out.json"):
+            with open("oidc_out.json", "w") as file:
+                json.dump([], file)
+        try:
+            submit_auth_request()
+
+
     def submit_auth_request(self):
         auth_url = self.auth_url_text.get(1.0, tk.END).strip()
         if not auth_url:
+            
             self.response_text.insert(tk.END, "Please generate an authentication request URL first.\n")
             if self.log_oidc_process.get():
                 self.oidc_log_text.insert(tk.END, "Authorization URL is empty. Generate the auth request first.\n")
@@ -1691,6 +1599,7 @@ class OIDCDebugger:
         self.response_text.insert(tk.END, "Please complete the authentication in your browser.\n")
         if self.log_oidc_process.get():
             self.oidc_log_text.insert(tk.END, f"Opened Authorization URL: {auth_url}\n")
+
         self.response_text.insert(tk.END, f"Opened Authorization URL: {auth_url}\n")
 
     def generate_self_signed_cert(self):
@@ -1801,12 +1710,6 @@ class OIDCDebugger:
         parent = self
 
         class HTTPSHandler(http.server.SimpleHTTPRequestHandler):
-            def log_message(self, format, *args):
-                with open(parent.tmp_file_path, 'a') as f:
-                    f.write("%s - - [%s] %s\n" %
-                            (self.client_address[0],
-                             self.log_date_time_string(),
-                             format % args))
             def do_GET(self):
                 if self.path.startswith('/callback'):
                     query = self.path.split('?')[-1]
@@ -1836,7 +1739,6 @@ class OIDCDebugger:
         return HTTPSHandler   
 
     def exchange_code_for_tokens(self, code):
-        self.oidcfile.write("Exchanging code for tokens...\n")
 
         server_name = self.server_name_entry.get().strip()
         if not server_name:
@@ -1878,7 +1780,6 @@ class OIDCDebugger:
                 client_assertion = f"{encoded_header}.{encoded_payload}.{signature}"
                 data["client_assertion"] = client_assertion
                 data["client_assertion_type"] = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
-            self.oidcfile.write("Token Exchange Request Data: {json.dumps(data, indent=4)}\n")
 
 
             try:
@@ -1888,16 +1789,24 @@ class OIDCDebugger:
             #response = requests.post(self.token_endpoint, data=data, headers=headers, verify=False)
             
             if response.status_code != 200:
-                self.oidcfile.write(f"Error fetching tokens: {response.status_code}\n")
+                self.response_text.insert(tk.END, f"Error fetching tokens: {response.status_code}\n")
+                if self.log_oidc_process.get():
+                    self.oidc_log_text.insert(tk.END, f"Error fetching tokens: {response.status_code}\n")
+                    self.add_horizontal_rule()
                 return
 
             tokens = response.json()
             self.display_tokens(tokens)
-            self.oidcfile.write(f"Token Exchange Response: {json.dumps(tokens, indent=4)}\n")
-
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Token Exchange Response: {json.dumps(tokens, indent=4)}\n")
+                self.add_horizontal_rule()
             
         except Exception as e:
-            self.oidcfile.write(f"Error exchanging code for tokens: {e}\n")            
+            self.response_text.insert(tk.END, f"Error exchanging code for tokens: {e}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Error exchanging code for tokens: {e}\n")
+                self.add_horizontal_rule()
+
             log_error("Error exchanging code for tokens", e)
 
     def stop_https_server(self): 
@@ -1905,7 +1814,10 @@ class OIDCDebugger:
         self.response_text.insert(tk.END, "HTTPS server stopped.\n")
 
     def display_tokens(self, tokens):
-        self.oidcfile.write("Displaying tokens...\n")
+        self.response_text.insert(tk.END, f"Display Tokens:\n")
+        if self.log_oidc_process.get():
+            self.oidc_log_text.insert(tk.END, "Display Tokens:\n")
+            self.add_horizontal_rule()
         try:
         # Clear the response text if the checkbox is checked 
             if self.clear_text_checkbox.get(): 
@@ -1914,26 +1826,39 @@ class OIDCDebugger:
             
             for key, value in tokens.items():
                 self.response_text.insert(tk.END, f"{key}: {value}\n")
-                self.oidcfile.write(f"{key}: {value}\n")
+                if self.log_oidc_process.get():
+                    self.oidc_log_text.insert(tk.END, f"{key}: {value}\n")
+                    self.add_horizontal_rule()
 
+            access_token = tokens.get("access_token")
+            refresh_token = tokens.get("refresh_token")
+            id_token = tokens.get("id_token")
+            id = self.decode_jwt(id_token)
+            refresh = self.decode_jwt(refresh_token)
+            userinfo = self.userinfo_query(access_token, "access")
+            introspect = self.introspect_token(access_token, "access" )
+            self.response_text.insert(tk.END, f"Access Token: {access_token}\n")
+            self.response_text.insert(tk.END, f"Refresh Token: {refresh_token}\n")
+            self.response_text.insert(tk.END, f"ID Token: {id_token}\n")
+            self.response_text.insert(tk.END, f"ID Token Decoded: {id}\n")
+            self.response_text.insert(tk.END, f"Refresh Token Decoded: {refresh}\n")
+            self.response_text.insert(tk.END, f"UserInfo: {userinfo}\n")
+            self.response_text.insert(tk.END, f"Introspect: {introspect}\n")
+            self.response_text.insert(tk.END, f"Tokens: {json.dumps(tokens, indent=4)}\n")
 
-            if "id_token" in tokens:
-                self.decode_jwt(tokens["id_token"])
-            if "access_token" in tokens:
-                self.userinfo_query(tokens["access_token"], "access")
-            if "access_token" in tokens:
-                self.introspect_token(tokens["access_token"], "access")
-            if "refresh_token" in tokens:
-                self.introspect_token(tokens["refresh_token"], "refresh")
-            if "aud" in tokens:
-                self.oidcfile.write(f"Audience (aud): {tokens['aud']}\n")
+#            if "refresh_token" in tokens:
+ #               self.introspect_token(tokens["refresh_token"], "refresh")
+  #          if "aud" in tokens:
+   #             self.response_text.insert(tk.END, f"Audience: {tokens['aud']}\n")
         except Exception as e:
-            self.oidcfile.write(f"Error displaying tokens: {e}\n")
+            self.response_text.insert(tk.END, f"Error displaying tokens: {e}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Error displaying tokens: {e}\n")
+                self.add_horizontal_rule()
             log_error("Error displaying tokens", e)
 
 
     def decode_jwt(self, token):
-        self.oidcfile.write("Decoding JWT...\n")
         try:
             header, payload, signature = token.split('.')
             header_decoded = base64.urlsafe_b64decode(header + '==').decode('utf-8')
@@ -1943,12 +1868,18 @@ class OIDCDebugger:
                 "payload": json.loads(payload_decoded),
                 "signature": signature
             }
-            self.oidcfile.write(f"Decoded ID Token: {json.dumps(decoded, indent=4)}\n")
+            self.response_text.insert(tk.END, f"Decoded Token: {json.dumps(decoded, indent=4)}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Decoded Token: {json.dumps(decoded, indent=4)}\n")
+                self.add_horizontal_rule()
+
         except Exception as e:
-            self.oidcfile.write(f"Error decoding JWT: {e}\n")
+            self.response_text.insert(tk.END, f"Error decoding JWT: {e}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Error decoding JWT: {e}\n")
+                self.add_horizontal_rule()
 
     def userinfo_query(self, token, token_type):
-        self.oidcfile.write("Querying userinfo...\n")
 
         try:
             headers = {
@@ -1962,20 +1893,31 @@ class OIDCDebugger:
             #response = requests.get(f"{self.userinfo_endpoint}", headers=headers, verify=False)
            
             if response.status_code != 200:
-                self.oidcfile.write(f"Error userinfo {token_type} token: {response.status_code}\n")
+                self.response_text.insert(tk.END, f"Error userinfo {token_type} token: {response.status_code}\n")
+                if self.log_oidc_process.get():
+                    self.oidc_log_text.insert(tk.END, f"Error userinfo {token_type} token: {response.status_code}\n")
+                    self.add_horizontal_rule()
+
                 return
 
             userinfo = response.json()
-            self.oidcfile.write(f"UserInfo {token_type.capitalize()} Token: {json.dumps(userinfo, indent=4)}\n")
+            print("userinfo", userinfo)
+            self.response_text.insert(tk.END, f"UserInfo {token_type.capitalize()} Token: {json.dumps(userinfo, indent=4)}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"UserInfo {token_type.capitalize()} Token: {json.dumps(userinfo, indent=4)}\n")
+                self.add_horizontal_rule()
         except Exception as e:
-            self.oidcfile.write(f"Error calling UserInfo: {e}\n")
+            self.response_text.insert(tk.END, f"Error calling UserInfo: {e}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Error calling UserInfo: {e}\n")
+                self.add_horizontal_rule()
+
 
     def introspect_token(self, token, token_type):
-        self.oidcfile.write("Introspecting token...\n")
         try:
             data = {
                 "token": token,
-                "token_type_hint": token_type,
+                "token_type_hint": "access_token",
                 "client_id": self.client_id,
             }
             headers = {}
@@ -2004,19 +1946,24 @@ class OIDCDebugger:
             #response = requests.post(self.introspect_endpoint, data=data, headers=headers, verify=False)
 
             if response.status_code != 200:
-                self.oidcfile.write(f"Error introspecting {token_type} token: {response.status_code}\n")
+                self.response_text.insert(tk.END, f"Error introspecting {token_type} token: {response.status_code}\n")
+                if self.log_oidc_process.get():
+                    self.oidc_log_text.insert(tk.END, f"Error introspecting {token_type} token: {response.status_code}\n")
+                    self.add_horizontal_rule()
                 return
 
             introspection = response.json()
-            self.oidcfile.write(f"Introspected {token_type.capitalize()} Token: {json.dumps(introspection, indent=4)}\n")
+            print("introspection", introspection)
+            self.response_text.insert(tk.END, f"Introspected {token_type.capitalize()} Token: {json.dumps(introspection, indent=4)}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Introspected {token_type.capitalize()} Token: {json.dumps(introspection, indent=4)}\n")
+                self.add_horizontal_rule()
         except Exception as e:
-            self.oidcfile.write(f"Error introspecting token: {e}\n")
+            self.response_text.insert(tk.END, f"Error introspecting {token_type} token: {e}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Error introspecting {token_type} token: {e}\n")
+                self.add_horizontal_rule()
             log_error("Error introspecting token", e)
-
-        # Copy output to result_text and oidc_log_text
-        with open(self.tmp_file_path, 'r') as f:
-            output = f.read()
-            self.oidcfile.write(output)
 
     def display_well_known_response(self, config):
         # Clear only the treeview items instead of destroying all widgets
@@ -2052,7 +1999,7 @@ class OIDCDebugger:
             self.response_table.bind("<Double-1>", self.on_item_double_click)
 
         for key, value in config.items():
-            self.oidcfile.write(f"{key}: {value}\n")
+            self.response_table.insert("", "end", values=(key, value))
 
 
 class CustomWindow:
