@@ -20,12 +20,32 @@ class ActiveDirectoryDebugger:
         ]
     }
 
-    def __init__(self, master):
+    def __init__(self, master, theme):
         self.master = master
         self.window = tk.Toplevel()
         self.window.title("Active Directory Debugger")
         self.window.geometry("1000x800")
+        self.theme = theme
+        self.apply_theme()
         self.setup_ui()
+
+    def apply_theme(self):
+        style = ttk.Style()
+        style.theme_use("clam")
+        colors = NORD_STYLES[self.theme]
+        style.configure("TFrame", background=colors["background"])
+        style.configure("TLabelFrame", background=colors["background"], foreground=colors["foreground"])
+        style.configure("Treeview", background=colors["background"], foreground=colors["foreground"], fieldbackground=colors["background"])
+        style.configure("Treeview.Heading", background=colors["header"], foreground=colors["foreground"])
+        style.configure("TButton", background=colors["button"], foreground=colors["foreground"])
+        style.map("TButton", background=[("active", colors["highlight"])])
+        style.configure("TEntry", background=colors["background"], foreground=colors["foreground"], fieldbackground=colors["background"])
+        style.configure("TText", background=colors["background"], foreground=colors["foreground"])
+        style.configure("Invert.TButton", background=colors["invert_button"], foreground=colors["foreground"])
+        style.map("Invert.TButton", background=[("active", colors["highlight"])])
+        style.configure("TButton", background=colors["button_background"], foreground=colors["foreground"])
+        style.configure("TLabel", background=colors["button_background"], foreground=colors["foreground"])
+        style.configure("TEntry", fieldbackground=colors["button_background"], foreground=colors["foreground"])
 
     def toggle_debug_window(self):
         if self.debug_var.get():
