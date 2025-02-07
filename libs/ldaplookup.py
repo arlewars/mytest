@@ -170,9 +170,10 @@ class LdapLookup:
         self.frame = ttk.Frame(self.scrollable_frame, padding="10")
         self.frame.pack(fill=tk.BOTH, expand=True)
         self.frame.grid_rowconfigure(0, weight=1)
+        self.frame.grid_columnconfigure(0, weight=1)
         self.frame.grid_columnconfigure(1, weight=1)
 
-        self.server_label = ttk.Label(self.frame, text="AD Server:")
+        self.server_label = ttk.Label(self.frame, text="AD Server:", width=50)
         self.server_label.grid(row=0, column=0, padx=5, pady=5, sticky="w")
         
         self.server_var = tk.StringVar()
@@ -329,27 +330,27 @@ class LdapLookup:
         missing_scrollbar_2.pack(side=tk.RIGHT, fill=tk.Y)
 
         self.options_frame = ttk.Frame(self.frame)
-        self.options_frame.grid(row=0, column=2, rowspan=17, padx=5, pady=5, sticky="ns")
+        self.options_frame.grid(row=0, column=2, rowspan=17, padx=2, pady=2, sticky="ns")
         self.options_frame.grid_rowconfigure(0, weight=1)
         self.options_frame.grid_columnconfigure(0, weight=1)
 
         self.export_user1_btn = ttk.Button(self.options_frame, text="Export User 1 Groups", command=self.export_user1_groups)
-        self.export_user1_btn.grid(row=0, column=0, padx=5, pady=5)
+        self.export_user1_btn.grid(row=2, column=0, padx=2, pady=2)
 
         self.export_user2_btn = ttk.Button(self.options_frame, text="Export User 2 Groups", command=self.export_user2_groups)
-        self.export_user2_btn.grid(row=1, column=0, padx=5, pady=5)
+        self.export_user2_btn.grid(row=3, column=0, padx=2, pady=2)
 
         self.export_missing_btn = ttk.Button(self.options_frame, text="Export Missing Groups", command=self.export_missing_groups)
-        self.export_missing_btn.grid(row=2, column=0, padx=5, pady=5)
+        self.export_missing_btn.grid(row=4, column=0, padx=2, pady=2)
 
 
         # Add a checkbox for enabling debug mode
         self.debug_var = tk.BooleanVar()
         self.debug_check = tk.Checkbutton(self.options_frame, text="Enable Debug", variable=self.debug_var)
-        self.debug_check.grid(row=3, column=0, padx=5, pady=5)
+        self.debug_check.grid(row=0, column=0, padx=5, pady=5)
 
         self.close_btn = ttk.Button(self.options_frame, text="Close", command=self.close_application)
-        self.close_btn.grid(row=4, column=0, padx=5, pady=5)
+        self.close_btn.grid(row=1, column=0, padx=5, pady=5)
 
         self.toggle_function()
 
@@ -370,7 +371,11 @@ class LdapLookup:
         if self.function_var.get() == "user":
             self.compare_group1_entry.configure(state="disabled")
             self.compare_group2_entry.configure(state="disabled")
+            self.user2_search_entry.configure(state="normal")
             self.search_btn.configure(state="normal")
+            self.add_user_btn.configure(state="normal")
+            self.user_search_entry.configure(state="normal")
+            self.user2_search_entry.configure(state="normal")
             self.compare_btn.configure(state="disabled")
             self.result_frame.grid(row=12, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
             self.group1_frame.grid_remove()
@@ -528,8 +533,6 @@ class LdapLookup:
                 only_in_user1 = user1_groups - user2_groups
 
                 self.missing_text_1.delete(1.0, tk.END)
-                self.missing_text_label = tk.Label(self.missing_frame_1, text=f"Groups that User {user_to_search} has but User {user2_to_search} is missing:")
-                self.missing_text_label.pack()
                 self.missing_text_1.insert(tk.END, f"Groups that User {user_to_search} has but User {user2_to_search} is missing:\n")
                 for group in only_in_user1:
                     self.missing_text_1.insert(tk.END, f"{group}\n")
