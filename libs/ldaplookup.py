@@ -1,6 +1,9 @@
 import tkinter as tk
 from tkinter import ttk
 import ldap3
+from ldap3 import Server, Connection, ALL, SUBTREE
+from ldap3.extend.standard import PagedSearch
+import logging
 from datetime import datetime, timedelta
 import json
 import csv
@@ -439,14 +442,46 @@ class LdapLookup:
             messagebox.showerror("LDAP Bind Error", "Bind not successful - invalid credentials")
             self.log_debug(f"LDAP Bind Error: {e}")
             return
+        except ldap3.core.exceptions.LDAPSocketOpenError as e:
+            messagebox.showerror("LDAP Connection Error", "Failed to connect to the LDAP server")
+            self.log_debug(f"LDAP Connection Error: {e}")
+            return
 
         search_filter = f'(|(sAMAccountName={user_to_search})(cn={user_to_search})(uid={user_to_search}))'
         self.log_debug(f"LDAP Search: Base={search_base}, Filter={search_filter}")
 
-        conn.search(search_base, search_filter, attributes=ldap3.ALL_ATTRIBUTES)
-        self.log_debug(f"LDAP Response: {conn.entries}")
+        entries = []
+        try:
+            conn.search(
+                search_base,
+                search_filter,
+                attributes=ldap3.ALL_ATTRIBUTES,
+                paged_size=5
+            )
+            cookie = conn.result['controls']['1.2.840.113556.1.4.319']['value']['cookie']
+            while cookie:
+                entries.extend(conn.entries)
+                conn.search(
+                    search_base,
+                    search_filter,
+                    attributes=ldap3.ALL_ATTRIBUTES,
+                    paged_size=5,
+                    paged_cookie=cookie
+                )
+                cookie = conn.result['controls']['1.2.840.113556.1.4.319']['value']['cookie']
+            entries.extend(conn.entries)
+        except KeyError:
+            self.log_debug("LDAP server does not support paged search, performing regular search.")
+            conn.search(
+                search_base,
+                search_filter,
+                attributes=ldap3.ALL_ATTRIBUTES
+            )
+            entries.extend(conn.entries)
 
-        if not conn.entries:
+        self.log_debug(f"LDAP Response: {entries}")
+
+        if not entries:
             self.result_text.delete(1.0, tk.END)
             self.result_text.insert(tk.END, f"User {user_to_search} not found.\n")
             self.result_text.insert(tk.END, f"Search Base: {search_base}\n")
@@ -454,12 +489,12 @@ class LdapLookup:
             self.log_debug(f"User {user_to_search} not found.")
             return
 
-        user_entry = conn.entries[0]
+        user_entry = entries[0]
 
         self.result_text.delete(1.0, tk.END)
         self.result_text.insert(tk.END, f"User {user_to_search} attributes:\n")
-        for attribute in user_entry.entry_attributes:
-            value = user_entry[attribute]
+        for attribute in user_entry['attributes']:
+            value = user_entry['attributes'][attribute]
             if isinstance(value, bytes):
                 value = value.decode('utf-8')
             self.result_text.insert(tk.END, f"{attribute}: {value}\n")
@@ -469,10 +504,38 @@ class LdapLookup:
             search_filter = f'(|(sAMAccountName={user2_to_search})(cn={user2_to_search})(uid={user2_to_search}))'
             self.log_debug(f"LDAP Search: Base={search_base}, Filter={search_filter}")
 
-            conn.search(search_base, search_filter, attributes=ldap3.ALL_ATTRIBUTES)
-            self.log_debug(f"LDAP Response: {conn.entries}")
+            entries = []
+            try:
+                conn.search(
+                    search_base,
+                    search_filter,
+                    attributes=ldap3.ALL_ATTRIBUTES,
+                    paged_size=5
+                )
+                cookie = conn.result['controls']['1.2.840.113556.1.4.319']['value']['cookie']
+                while cookie:
+                    entries.extend(conn.entries)
+                    conn.search(
+                        search_base,
+                        search_filter,
+                        attributes=ldap3.ALL_ATTRIBUTES,
+                        paged_size=5,
+                        paged_cookie=cookie
+                    )
+                    cookie = conn.result['controls']['1.2.840.113556.1.4.319']['value']['cookie']
+                entries.extend(conn.entries)
+            except KeyError:
+                self.log_debug("LDAP server does not support paged search, performing regular search.")
+                conn.search(
+                    search_base,
+                    search_filter,
+                    attributes=ldap3.ALL_ATTRIBUTES
+                )
+                entries.extend(conn.entries)
 
-            if not conn.entries:
+            self.log_debug(f"LDAP Response: {entries}")
+
+            if not entries:
                 self.user2_text.delete(1.0, tk.END)
                 self.user2_text.insert(tk.END, f"User {user2_to_search} not found.\n")
                 self.user2_text.insert(tk.END, f"Search Base: {search_base}\n")
@@ -480,26 +543,26 @@ class LdapLookup:
                 self.log_debug(f"User {user2_to_search} not found.")
                 return
 
-            user2_entry = conn.entries[0]
+            user2_entry = entries[0]
 
             self.user1_text.delete(1.0, tk.END)
             self.user1_text.insert(tk.END, f"User {user_to_search} attributes:\n")
-            for attribute in user_entry.entry_attributes:
-                value = user_entry[attribute]
+            for attribute in user_entry['attributes']:
+                value = user_entry['attributes'][attribute]
                 if isinstance(value, bytes):
                     value = value.decode('utf-8')
                 self.user1_text.insert(tk.END, f"{attribute}: {value}\n")
 
             self.user2_text.delete(1.0, tk.END)
             self.user2_text.insert(tk.END, f"User {user2_to_search} attributes:\n")
-            for attribute in user2_entry.entry_attributes:
-                value = user2_entry[attribute]
+            for attribute in user2_entry['attributes']:
+                value = user2_entry['attributes'][attribute]
                 if isinstance(value, bytes):
                     value = value.decode('utf-8')
                 self.user2_text.insert(tk.END, f"{attribute}: {value}\n")
 
-            user1_groups = set(user_entry['memberOf']) if 'memberOf' in user_entry else set()
-            user2_groups = set(user2_entry['memberOf']) if 'memberOf' in user2_entry else set()
+            user1_groups = set(user_entry['attributes']['memberOf']) if 'memberOf' in user_entry['attributes'] else set()
+            user2_groups = set(user2_entry['attributes']['memberOf']) if 'memberOf' in user2_entry['attributes'] else set()
 
             user1_groups = {group.decode('utf-8') if isinstance(group, bytes) else group for group in user1_groups}
             user2_groups = {group.decode('utf-8') if isinstance(group, bytes) else group for group in user2_groups}
@@ -518,13 +581,12 @@ class LdapLookup:
                 for group in user2_groups:
                     self.user2_text.insert(tk.END, f"{group}\n")
 
+            only_in_user1 = user1_groups - user2_groups
 
-                only_in_user1 = user1_groups - user2_groups
-
-                self.missing_text_1.delete(1.0, tk.END)
-                self.missing_text_1.insert(tk.END, f"Groups that User {user_to_search} has but User {user2_to_search} is missing:\n")
-                for group in only_in_user1:
-                    self.missing_text_1.insert(tk.END, f"{group}\n")
+            self.missing_text_1.delete(1.0, tk.END)
+            self.missing_text_1.insert(tk.END, f"Groups that User {user_to_search} has but User {user2_to_search} is missing:\n")
+            for group in only_in_user1:
+                self.missing_text_1.insert(tk.END, f"{group}\n")
 
     def compare_groups(self):
         server = self.server_entry.get()
