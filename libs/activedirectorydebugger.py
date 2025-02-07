@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import json
 import csv
 from tkinter import messagebox
+import sys
 
 
 class ActiveDirectoryDebugger:
@@ -89,6 +90,12 @@ class ActiveDirectoryDebugger:
         self.apply_theme()
         self.window.resizable(True, True)
         self.setup_ui()
+        self.window.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+    def on_closing(self):
+        self.window.destroy()
+        self.master.quit()
+        sys.exit()
 
     def apply_theme(self):
         style = ttk.Style()
@@ -297,17 +304,29 @@ class ActiveDirectoryDebugger:
         self.group2_text.configure(yscrollcommand=group2_scrollbar.set)
         group2_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        self.missing_frame = ttk.Frame(self.frame)
-        self.missing_frame.grid(row=16, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
-        self.missing_frame.grid_rowconfigure(0, weight=1)
-        self.missing_frame.grid_columnconfigure(0, weight=1)
+        self.missing_frame_1 = ttk.Frame(self.frame)
+        self.missing_frame_1.grid(row=16, column=0, padx=5, pady=5, sticky="nsew")
+        self.missing_frame_1.grid_rowconfigure(0, weight=1)
+        self.missing_frame_1.grid_columnconfigure(0, weight=1)
 
-        self.missing_text = tk.Text(self.missing_frame, height=15, width=80)
-        self.missing_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.missing_text_1 = tk.Text(self.missing_frame_1, height=15, width=40)
+        self.missing_text_1.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        missing_scrollbar = ttk.Scrollbar(self.missing_frame, orient="vertical", command=self.missing_text.yview)
-        self.missing_text.configure(yscrollcommand=missing_scrollbar.set)
-        missing_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        missing_scrollbar_1 = ttk.Scrollbar(self.missing_frame_1, orient="vertical", command=self.missing_text_1.yview)
+        self.missing_text_1.configure(yscrollcommand=missing_scrollbar_1.set)
+        missing_scrollbar_1.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.missing_frame_2 = ttk.Frame(self.frame)
+        self.missing_frame_2.grid(row=16, column=1, padx=5, pady=5, sticky="nsew")
+        self.missing_frame_2.grid_rowconfigure(0, weight=1)
+        self.missing_frame_2.grid_columnconfigure(0, weight=1)
+
+        self.missing_text_2 = tk.Text(self.missing_frame_2, height=15, width=40)
+        self.missing_text_2.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        missing_scrollbar_2 = ttk.Scrollbar(self.missing_frame_2, orient="vertical", command=self.missing_text_2.yview)
+        self.missing_text_2.configure(yscrollcommand=missing_scrollbar_2.set)
+        missing_scrollbar_2.pack(side=tk.RIGHT, fill=tk.Y)
 
         self.options_frame = ttk.Frame(self.frame)
         self.options_frame.grid(row=0, column=2, rowspan=17, padx=5, pady=5, sticky="ns")
@@ -335,8 +354,7 @@ class ActiveDirectoryDebugger:
         self.toggle_function()
 
     def close_application(self):
-        self.window.destroy()
-        self.master.quit()
+        self.on_closing()
 
     def update_server_entry(self, event):
         server_map = {
@@ -357,7 +375,8 @@ class ActiveDirectoryDebugger:
             self.result_frame.grid(row=12, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
             self.group1_frame.grid_remove()
             self.group2_frame.grid_remove()
-            self.missing_frame.grid_remove()
+            self.missing_frame_1.grid_remove()
+            self.missing_frame_2.grid_remove()
         else:
             self.compare_group1_entry.configure(state="normal")
             self.compare_group2_entry.configure(state="normal")
@@ -369,7 +388,8 @@ class ActiveDirectoryDebugger:
             self.result_frame.grid_remove()
             self.group1_frame.grid(row=14, column=0, padx=5, pady=5, sticky="ew")
             self.group2_frame.grid(row=14, column=1, padx=5, pady=5, sticky="ew")
-            self.missing_frame.grid(row=15, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
+            self.missing_frame_1.grid(row=16, column=0, padx=5, pady=5, sticky="ew")
+            self.missing_frame_2.grid(row=16, column=1, padx=5, pady=5, sticky="ew")
 
     def add_user(self):
             self.user2_search_label.grid()
@@ -430,30 +450,8 @@ class ActiveDirectoryDebugger:
         if not conn.entries:
             self.result_text.delete(1.0, tk.END)
             self.result_text.insert(tk.END, f"User {user_to_search} not found.\n")
-            self.log_error("User not found.",user_to_search)
-            return
-
-        user_entry = conn.entries[0]
-
-        self.result_text.delete(1.0, tk.END)
-        self.result_text.insert(tk.END, f"User {user_to_search} attributes:\n")
-        for attribute in user_entry.entry_attributes:
-            value = user_entry[attribute]
-            if isinstance(value, bytes):
-                value = value.decode('utf-8')
-            self.result_text.insert(tk.END, f"{attribute}: {value}\n")
-
-        if self.user2_search_entry.winfo_ismapped():
-            user2_to_search = self.user2_search_entry.get()
-            search_filter = f'(|(sAMAccountName={user2_to_search})(cn={user2_to_search})(uid={user2_to_search}))'
-            if debug and hasattr(self, 'debug_text'):
-                debug_message = f"LDAP Search: Base={search_base}, Filter={search_filter}\n"
-                self.debug_text.insert(tk.END, debug_message)
-
-            conn.search(search_base, search_filter, attributes=ldap3.ALL_ATTRIBUTES)
-
-            if debug and hasattr(self, 'debug_text'):
-                debug_message = f"LDAP Response: {conn.entries}\n"
+            self.result_text.insert(tk.END, f"Search Base: {search_base}\n")
+            self.result_text.insert(tk.END, f"Search Filter: {search_filter}\n")
             self.log_error("User not found.",user_to_search)
             return
 
@@ -483,14 +481,14 @@ class ActiveDirectoryDebugger:
             if not conn.entries:
                 self.user2_text.delete(1.0, tk.END)
                 self.user2_text.insert(tk.END, f"User {user2_to_search} not found.\n")
+                self.user2_text.insert(tk.END, f"Search Base: {search_base}\n")
+                self.user2_text.insert(tk.END, f"Search Filter: {search_filter}\n")
                 self.log_error(f"User not found.",user2_to_search)
                 return
 
             user2_entry = conn.entries[0]
 
             self.user1_text.delete(1.0, tk.END)
-            self.user1_text_label = tk.Label(self.user1_frame, text=f"User {user_to_search} Attributes:")
-            self.user1_text_label.pack()
             self.user1_text.insert(tk.END, f"User {user_to_search} attributes:\n")
             for attribute in user_entry.entry_attributes:
                 value = user_entry[attribute]
@@ -499,8 +497,6 @@ class ActiveDirectoryDebugger:
                 self.user1_text.insert(tk.END, f"{attribute}: {value}\n")
 
             self.user2_text.delete(1.0, tk.END)
-            self.user2_text_label = tk.Label(self.user2_frame, text=f"User {user2_to_search} Attributes:")
-            self.user2_text_label.pack()
             self.user2_text.insert(tk.END, f"User {user2_to_search} attributes:\n")
             for attribute in user2_entry.entry_attributes:
                 value = user2_entry[attribute]
@@ -531,12 +527,12 @@ class ActiveDirectoryDebugger:
 
                 only_in_user1 = user1_groups - user2_groups
 
-                self.missing_text.delete(1.0, tk.END)
-                self.missing_text_label = tk.Label(self.missing_frame, text=f"Groups that User {user_to_search} has but User {user2_to_search} is missing:")
+                self.missing_text_1.delete(1.0, tk.END)
+                self.missing_text_label = tk.Label(self.missing_frame_1, text=f"Groups that User {user_to_search} has but User {user2_to_search} is missing:")
                 self.missing_text_label.pack()
-                self.missing_text.insert(tk.END, f"Groups that User {user_to_search} has but User {user2_to_search} is missing:\n")
+                self.missing_text_1.insert(tk.END, f"Groups that User {user_to_search} has but User {user2_to_search} is missing:\n")
                 for group in only_in_user1:
-                    self.missing_text.insert(tk.END, f"{group}\n")
+                    self.missing_text_1.insert(tk.END, f"{group}\n")
 
     def compare_groups(self):
         server = self.server_entry.get()
@@ -571,35 +567,27 @@ class ActiveDirectoryDebugger:
 
         self.group1_text.delete(1.0, tk.END)
         self.group2_text.delete(1.0, tk.END)
+        self.missing_text_1.delete(1.0, tk.END)
+        self.missing_text_2.delete(1.0, tk.END)
 
-        if group1 and not group2:
-            self.group1_text.insert(tk.END, f"Members of Group 1 ({group1}):\n")
-            for member in group1_members:
-                self.group1_text.insert(tk.END, f"{member}\n")
-        elif group1 and group2:
-            only_in_group1 = group1_members - group2_members
-            only_in_group2 = group2_members - group1_members
+        self.group1_text.insert(tk.END, f"Members of Group 1 ({group1}):\n")
+        for member in group1_members:
+            self.group1_text.insert(tk.END, f"{member}\n")
 
-            self.group1_text.insert(tk.END, f"Members only in {group1}:\n")
-            for member in only_in_group1:
-                self.group1_text.insert(tk.END, f"{member}\n")
+        self.group2_text.insert(tk.END, f"Members of Group 2 ({group2}):\n")
+        for member in group2_members:
+            self.group2_text.insert(tk.END, f"{member}\n")
 
-            self.group2_text.insert(tk.END, f"Members only in {group2}:\n")
-            for member in only_in_group2:
-                self.group2_text.insert(tk.END, f"{member}\n")
-        else:
-            self.group1_text.insert(tk.END, f"Members of Group 1 ({group1}):\n")
-            for member in group1_members:
-                self.group1_text.insert(tk.END, f"{member}\n")
+        only_in_group1 = group1_members - group2_members
+        only_in_group2 = group2_members - group1_members
 
-            self.group2_text.insert(tk.END, f"Members of Group 2 ({group2}):\n")
-            for member in group2_members:
-                self.group2_text.insert(tk.END, f"{member}\n")
+        self.missing_text_1.insert(tk.END, f"Members only in {group1}:\n")
+        for member in only_in_group1:
+            self.missing_text_1.insert(tk.END, f"{member}\n")
 
-            self.missing_text.delete(1.0, tk.END)
-            self.missing_text.insert(tk.END, f"Members missing between {group1} and {group2}:\n")
-            for member in only_in_group1.union(only_in_group2):
-                self.missing_text.insert(tk.END, f"{member}\n")
+        self.missing_text_2.insert(tk.END, f"Members only in {group2}:\n")
+        for member in only_in_group2:
+            self.missing_text_2.insert(tk.END, f"{member}\n")
 
     def export_user1_groups(self):
         user1_sAMAccountName = self.user_search_entry.get()
@@ -628,11 +616,16 @@ class ActiveDirectoryDebugger:
     def export_missing_groups(self):
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         filename = f"missing_groups_{timestamp}.csv"
-        missing_groups = self.missing_text.get(1.0, tk.END).strip().split('\n')
+        missing_groups_1 = self.missing_text_1.get(1.0, tk.END).strip().split('\n')
+        missing_groups_2 = self.missing_text_2.get(1.0, tk.END).strip().split('\n')
         with open(filename, 'w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(["Missing Groups"])
-            for group in missing_groups:
+            writer.writerow(["Missing Groups in Group 1"])
+            for group in missing_groups_1:
+                writer.writerow([group])
+            writer.writerow(["--------------------"])
+            writer.writerow(["Missing Groups in Group 2"])
+            for group in missing_groups_2:
                 writer.writerow([group])
         messagebox.showinfo("Export Successful", f"Missing groups have been exported successfully to {filename}.")
 
@@ -641,7 +634,7 @@ class ActiveDirectoryDebugger:
 def main():
     root = tk.Tk()
     root.withdraw()  # Hide the root window
-    theme = "default"  # Set your theme here
+    theme = sys.argv[1] if len(sys.argv) > 1 else "standard"
     debugger = ActiveDirectoryDebugger(root, theme)
     root.mainloop()
 
