@@ -2235,7 +2235,7 @@ def open_oidbc_debugger(theme):
     subprocess.Popen([sys.executable, "libs/oidcdebugger.py", theme])
 
 def open_ldap_lookup(theme):
-    subprocess.Popen([sys.executable, "libs/ldaplookuptool.py", theme])
+    subprocess.Popen([sys.executable, "libs/ldaplookup.py", theme])
 
 def main():
     global first_run
@@ -2336,7 +2336,7 @@ def main():
     ttk.Button(sidebar, text="SSL Certificate Reader", command=lambda: open_ssl_cert_reader(theme_var.get())).grid(row=11, column=0, padx=5, pady=2)
     ttk.Button(sidebar, text="JWKS Check", command=lambda: open_jwks_check_window(theme_var.get())).grid(row=12, column=0, padx=5, pady=2)
     ttk.Button(sidebar, text="PingFederate OAuth Client Tool", command=lambda: open_pingfederate_client_app(theme_var.get())).grid(row=13, column=0, padx=5, pady=2)
-    ttk.Button(sidebar, text="Active Directory Debugger", command=lambda: open_ldap_lookup(theme_var.get())).grid(row=14, column=0, padx=5, pady=2)
+    ttk.Button(sidebar, text="LDAP Lookup Tool", command=lambda: open_ldap_lookup(theme_var.get())).grid(row=14, column=0, padx=5, pady=2)
 #    HTTPRequest(http_request_frame, theme_var.get())
 
     for widget in scrollable_frame.winfo_children():
