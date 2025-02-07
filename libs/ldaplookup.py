@@ -117,15 +117,23 @@ class LdapLookup:
 
     def toggle_debug_window(self):
         if self.debug_var.get():
-            self.debug_window = tk.Toplevel(self)
+            self.debug_window = tk.Toplevel(self.window)
             self.debug_window.title("LDAP Debug")
-            self.debug_text = tk.Text(self.debug_window, wrap=tk.WORD, height=20, width=80)
-            self.debug_text.pack(fill=tk.BOTH, expand=True)
+            self.debug_frame = ttk.Frame(self.debug_window, padding="10")
+            self.debug_frame.pack(fill=tk.BOTH, expand=True)
+            self.debug_text = tk.Text(self.debug_frame, wrap=tk.WORD, height=20, width=80)
+            self.debug_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            debug_scrollbar = ttk.Scrollbar(self.debug_frame, orient="vertical", command=self.debug_text.yview)
+            self.debug_text.configure(yscrollcommand=debug_scrollbar.set)
+            debug_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         else:
             if hasattr(self, 'debug_window'):
                 self.debug_window.destroy()
                 del self.debug_text  # Ensure debug_text is deleted when window is closed
 
+    def log_debug(self, message):
+        if self.debug_var.get() and hasattr(self, 'debug_text'):
+            self.debug_text.insert(tk.END, f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {message}\n")
 
     def log_error(self,message, exception):
         error_entry = {
@@ -147,6 +155,7 @@ class LdapLookup:
         errors.append(error_entry)
         with open(log_file, "w") as file:
             json.dump(errors, file, indent=4)
+        self.log_debug(f"Error logged: {message} - {exception}")
 
 
     def setup_ui(self):
@@ -346,7 +355,7 @@ class LdapLookup:
 
         # Add a checkbox for enabling debug mode
         self.debug_var = tk.BooleanVar()
-        self.debug_check = tk.Checkbutton(self.options_frame, text="Enable Debug", variable=self.debug_var)
+        self.debug_check = tk.Checkbutton(self.options_frame, text="Enable Debug", variable=self.debug_var, command=self.toggle_debug_window)
         self.debug_check.grid(row=0, column=0, padx=5, pady=5)
 
         self.close_btn = ttk.Button(self.options_frame, text="Close", command=self.close_application)
@@ -406,58 +415,43 @@ class LdapLookup:
         password = self.password_entry.get()
         search_base = self.search_base_entry.get()
         user_to_search = self.user_search_entry.get()
-        debug = self.debug_var.get()
 
         try:
             server_obj = ldap3.Server(server)
-            try: # Attempt to bind with the provided username and password
+            try:  # Attempt to bind with the provided username and password
                 conn = ldap3.Connection(server_obj, user=username, password=password, auto_bind=True, client_strategy=ldap3.RESTARTABLE, auto_referrals=False)
-                if debug and hasattr(self, 'debug_text'):
-                    debug_message = f"LDAP Bind: Server={server}, User={username}\n"
-                    self.debug_text.insert(tk.END, debug_message)
+                self.log_debug(f"LDAP Bind: Server={server}, User={username}")
             except:
                 if self.server_var.get() in self.dn_templates:
                     for template in self.dn_templates[self.server_var.get()]:
                         try:
                             user_dn = template.format(username=username)
                             conn = ldap3.Connection(server_obj, user=user_dn, password=password, auto_bind=True, client_strategy=ldap3.RESTARTABLE, auto_referrals=False)
-                            if debug and hasattr(self, 'debug_text'):
-                                debug_message = f"LDAP Bind: Server={server}, User={user_dn}\n"
-                                self.debug_text.insert(tk.END, debug_message)
+                            self.log_debug(f"LDAP Bind: Server={server}, User={user_dn}")
                             break
                         except ldap3.core.exceptions.LDAPBindError as e:
-                            self.log_error("LDAP Bind Error with template",e)
+                            self.log_debug(f"LDAP Bind Error with template: {e}")
                             continue
                     else:
                         raise ldap3.core.exceptions.LDAPBindError("Automatic bind not successful - invalid credentials")
-                    if debug and hasattr(self, 'debug_text'):
-                        debug_message = f"LDAP Bind: Server={server}, User={username}\n"
-                        self.debug_text.insert(tk.END, debug_message)
+                    self.log_debug(f"LDAP Bind: Server={server}, User={username}")
         except ldap3.core.exceptions.LDAPBindError as e:
             messagebox.showerror("LDAP Bind Error", "Bind not successful - invalid credentials")
-            self.log_error("LDAP Bind Error",e)
-            if debug and hasattr(self, 'debug_text'):
-                debug_message = f"LDAP Bind Error: {e}\n"
-                self.debug_text.insert(tk.END, debug_message)
+            self.log_debug(f"LDAP Bind Error: {e}")
             return
 
         search_filter = f'(|(sAMAccountName={user_to_search})(cn={user_to_search})(uid={user_to_search}))'
-        if debug and hasattr(self, 'debug_text'):
-            debug_message = f"LDAP Search: Base={search_base}, Filter={search_filter}\n"
-            self.debug_text.insert(tk.END, debug_message)
+        self.log_debug(f"LDAP Search: Base={search_base}, Filter={search_filter}")
 
         conn.search(search_base, search_filter, attributes=ldap3.ALL_ATTRIBUTES)
-
-        if debug and hasattr(self, 'debug_text'):
-            debug_message = f"LDAP Response: {conn.entries}\n"
-            self.debug_text.insert(tk.END, debug_message)
+        self.log_debug(f"LDAP Response: {conn.entries}")
 
         if not conn.entries:
             self.result_text.delete(1.0, tk.END)
             self.result_text.insert(tk.END, f"User {user_to_search} not found.\n")
             self.result_text.insert(tk.END, f"Search Base: {search_base}\n")
             self.result_text.insert(tk.END, f"Search Filter: {search_filter}\n")
-            self.log_error("User not found.",user_to_search)
+            self.log_debug(f"User {user_to_search} not found.")
             return
 
         user_entry = conn.entries[0]
@@ -473,22 +467,17 @@ class LdapLookup:
         if self.user2_search_entry.winfo_ismapped():
             user2_to_search = self.user2_search_entry.get()
             search_filter = f'(|(sAMAccountName={user2_to_search})(cn={user2_to_search})(uid={user2_to_search}))'
-            if debug and hasattr(self, 'debug_text'):
-                debug_message = f"LDAP Search: Base={search_base}, Filter={search_filter}\n"
-                self.debug_text.insert(tk.END, debug_message)
+            self.log_debug(f"LDAP Search: Base={search_base}, Filter={search_filter}")
 
             conn.search(search_base, search_filter, attributes=ldap3.ALL_ATTRIBUTES)
-
-            if debug and hasattr(self, 'debug_text'):
-                debug_message = f"LDAP Response: {conn.entries}\n"
-                self.debug_text.insert(tk.END, debug_message)
+            self.log_debug(f"LDAP Response: {conn.entries}")
 
             if not conn.entries:
                 self.user2_text.delete(1.0, tk.END)
                 self.user2_text.insert(tk.END, f"User {user2_to_search} not found.\n")
                 self.user2_text.insert(tk.END, f"Search Base: {search_base}\n")
                 self.user2_text.insert(tk.END, f"Search Filter: {search_filter}\n")
-                self.log_error(f"User not found.",user2_to_search)
+                self.log_debug(f"User {user2_to_search} not found.")
                 return
 
             user2_entry = conn.entries[0]
@@ -547,12 +536,15 @@ class LdapLookup:
 
         server = ldap3.Server(server)
         conn = ldap3.Connection(server, user=username, password=password, auto_bind=True)
+        self.log_debug(f"LDAP Bind: Server={server}, User={username}")
 
         if group1:
             conn.search(search_base, f'(cn={group1})', attributes=['member'])
+            self.log_debug(f"LDAP Search: Base={search_base}, Filter=(cn={group1})")
             if not conn.entries:
                 self.group1_text.delete(1.0, tk.END)
                 self.group1_text.insert(tk.END, f"Group {group1} not found.\n")
+                self.log_debug(f"Group {group1} not found.")
                 return
             group1_members = set(conn.entries[0].member)
         else:
@@ -560,9 +552,11 @@ class LdapLookup:
 
         if group2:
             conn.search(search_base, f'(cn={group2})', attributes=['member'])
+            self.log_debug(f"LDAP Search: Base={search_base}, Filter=(cn={group2})")
             if not conn.entries:
                 self.group2_text.delete(1.0, tk.END)
                 self.group2_text.insert(tk.END, f"Group {group2} not found.\n")
+                self.log_debug(f"Group {group2} not found.")
                 return
             group2_members = set(conn.entries[0].member)
         else:
