@@ -1,15 +1,18 @@
 import tkinter as tk
 from tkinter import ttk
 import ldap3
-from ldap3 import Server, Connection
-from datetime import datetime
+from ldap3 import Server, Connection, ALL, SUBTREE
+from ldap3.extend.standard import PagedSearch
+import logging
+from datetime import datetime, timedelta
 import json
 import csv
 from tkinter import messagebox
 import sys
-from ldap3.core.exceptions import LDAPBindError, LDAPSocketOpenError
+from ldap3.core.exceptions import LDAPBindError, LDAPKeyError
+from ldap3.core.exceptions import LDAPSocketOpenError
 
-DEBUGALL = False
+DEBUGALL = True
 
 class LdapLookup:
     dn_templates = {
@@ -448,8 +451,7 @@ class LdapLookup:
             entries.extend(conn.entries)
 
         self.log_debug(f"LDAP Response: {entries}")
-        if DEBUGALL:
-            print(f"LDAP Response: {entries}")
+        print(f"LDAP Response: {entries}")
         if not entries:
             self.result_text.delete(1.0, tk.END)
             self.result_text.insert(tk.END, f"User {user_to_search} not found.\n")
@@ -476,7 +478,7 @@ class LdapLookup:
             search_filter = f'(|(sAMAccountName={user2_to_search})(cn={user2_to_search})(uid={user2_to_search}))'
             self.log_debug(f"LDAP Search: Base={search_base}, Filter={search_filter}")
 
-            entries2 = []
+            entries = []
             try:
                 conn.search(
                     search_base,
@@ -487,7 +489,7 @@ class LdapLookup:
                 cookie = conn.result.get('controls', {}).get('1.2.840.113556.1.4.319', {}).get('value', {}).get('cookie')
                 
                 while cookie:
-                    entries2.extend(conn.entries)
+                    entries.extend(conn.entries)
                     conn.search(
                         search_base,
                         search_filter,
@@ -497,7 +499,7 @@ class LdapLookup:
                     )
                     cookie = conn.result.get('controls', {}).get('1.2.840.113556.1.4.319', {}).get('value', {}).get('cookie')
                     
-                entries2.extend(conn.entries)
+                entries.extend(conn.entries)
             except LDAPKeyError:
                 self.log_debug("LDAP server does not support paged search, performing regular search.")
                 conn.search(
@@ -505,46 +507,46 @@ class LdapLookup:
                     search_filter,
                     attributes=ldap3.ALL_ATTRIBUTES
                 )
-                entries2.extend(conn.entries)
+                entries.extend(conn.entries)
 
-            self.log_debug(f"LDAP Response: {entries2}")
+            self.log_debug(f"LDAP Response: {entries}")
 
-            if not entries2:
+            if not entries:
                 self.user2_text.delete(1.0, tk.END)
                 self.user2_text.insert(tk.END, f"User {user2_to_search} not found.\n")
                 self.user2_text.insert(tk.END, f"Search Base: {search_base}\n")
                 self.user2_text.insert(tk.END, f"Search Filter: {search_filter}\n")
                 self.log_debug(f"User {user2_to_search} not found.")
                 return
+            
 
-            user2_entry = entries2[0]
+            user2_entry = entries[0]
             user1_groups = []
 
             # Handle user2 text results
             self.user1_text.delete(1.0, tk.END)
             self.user2_text.delete(1.0, tk.END)
-            self.user1_text.insert(tk.END, f"User {user_to_search} Groups:\n")
-            self.user2_text.insert(tk.END, f"User {user2_to_search} Groups:\n")
+            self.user1_text.insert(tk.END, f"User {user_to_search} attributes:\n")
+            self.user2_text.insert(tk.END, f"User {user2_to_search} attributes:\n")
             if user2_entry:
                 self.log_debug(f"User {user2_to_search} attributes:")
                     
-                for user2_entry in entries2:
-                    if isinstance(user2_entry, bytes):
-                        value = user2_entry.decode('utf-8')
+                for user2_entry in entries:
+                    if isinstance(user_entry, bytes):
+                        value = user_entry2.decode('utf-8')
                         self.log_debug(f"{value}\n")
                     else:
-                        self.log_debug(f"{user2_entry}\n")
+                        self.log_debug(f"{user_entry}\n")
 
             for user_entry in entries:
                 if hasattr(user_entry, 'memberOf'):
                     user1_groups = user_entry.memberOf
+            print(f"Groups for User {user_to_search}: {user1_groups}")
 
-            for user2_entry in entries2:
-                if hasattr(user2_entry, 'memberOf'):
-                    user2_groups = user2_entry.memberOf
-            if DEBUGALL:
-                print(f"Groups for User {user_to_search}: {user1_groups}")
-                print(f"Groups for User {user2_to_search}: {user2_groups}")
+            for user_entry in entries:
+                if hasattr(user_entry, 'memberOf'):
+                    user2_groups = user_entry.memberOf
+            print(f"Groups for User {user2_to_search}: {user2_groups}")
 
             user1_groups = {group.decode('utf-8') if isinstance(group, bytes) else group for group in user1_groups}
             user2_groups = {group.decode('utf-8') if isinstance(group, bytes) else group for group in user2_groups}
@@ -554,6 +556,7 @@ class LdapLookup:
                 self.log_debug(f"No groups found for User {user_to_search}.")
                 self.user1_text.insert(tk.END, "No groups found.\n")
             else:
+                self.user1_text.insert(tk.END, "Groups:\n")
                 self.log_debug(f"Groups for User {user_to_search}: {user1_groups}")
                 for group in user1_groups:
                     self.user1_text.insert(tk.END, f"{group}\n")
@@ -563,6 +566,7 @@ class LdapLookup:
                 self.user2_text.insert(tk.END, "No groups found.\n")
                 self.log_debug(f"No groups found for User {user2_to_search}.")
             else:
+                self.user2_text.insert(tk.END, "Groups:\n")
                 self.log_debug(f"Groups for User {user2_to_search}: {user2_groups}")
                 for group in user2_groups:
                     self.user2_text.insert(tk.END, f"{group}\n")
@@ -570,22 +574,14 @@ class LdapLookup:
 
             only_in_user1 = user1_groups - user2_groups
             only_in_user2 = user2_groups - user1_groups
-            self.user1_text.insert(tk.END, f"\n")
-            self.user2_text.insert(tk.END, f"\n")
-            self.user1_text.insert(tk.END, f"Groups that User {user_to_search} has but User {user2_to_search} is missing:\n")
-            self.user2_text.insert(tk.END, f"Groups that User {user2_to_search} has but User {user_to_search} is missing:\n")
-            
-            if DEBUGALL:
-                print(f"Groups only in User {user_to_search}: {only_in_user1}")
-                print(f"Groups only in User {user2_to_search}: {only_in_user2}")
+            print(f"Groups only in User {user_to_search}: {only_in_user1}")
+            print(f"Groups only in User {user2_to_search}: {only_in_user2}")
 
-         #   self.missing_text_1.insert(tk.END, f"Groups that User {user_to_search} has but User {user2_to_search} is missing:\n")
+            self.missing_text_1.insert(tk.END, f"Groups that User {user_to_search} has but User {user2_to_search} is missing:\n")
             self.log_debug(f"Groups only in User {user_to_search}: {only_in_user1}")
             for group in only_in_user1:
-                self.user1_text.insert(tk.END, f"{group}\n")
-            for group in only_in_user2:
-                self.user2_text.insert(tk.END, f"{group}\n")
-
+                self.missing_text_1.insert(tk.END, f"{group}\n")
+                self.log_debug(f"Group: {group}")
 
     def compare_groups(self):
         server = self.server_entry.get()

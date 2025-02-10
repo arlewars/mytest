@@ -1,17 +1,22 @@
 import tkinter as tk
 from tkinter import ttk
 import ldap3
-from ldap3 import Server, Connection
-from datetime import datetime
+from ldap3 import Server, Connection, ALL, SUBTREE
+from ldap3.extend.standard import PagedSearch
+import logging
+from datetime import datetime, timedelta
 import json
 import csv
 from tkinter import messagebox
 import sys
-from ldap3.core.exceptions import LDAPBindError, LDAPSocketOpenError
+from ldap3.core.exceptions import LDAPBindError, LDAPKeyError
+from ldap3.core.exceptions import LDAPSocketOpenError
 
-DEBUGALL = False
+DEBUGALL = True
 
 class LdapLookup:
+
+ # Define the templates for the different AD servers
     dn_templates = {
         "LUV": [
             "cn={username},ou=users,ou=field,ou=swaco,dc=luv,dc=ad,dc=swacorp,dc=com",
@@ -26,7 +31,7 @@ class LdapLookup:
             "cn={username},ou=security operations,ou=security,ou=admin,dc=devad,dc=devad,dc=swacorp,dc=com"
         ]
     }
-
+    # Styling configurations
     NORD_STYLES = {
         "standard": {
             "background": "#2C2C2E",
@@ -66,7 +71,21 @@ class LdapLookup:
         }
     }
 
-    DEFAULT_THEME = NORD_STYLES["standard"]
+    DEFAULT_THEME = {
+            "background": "#2C2C2E",
+            "foreground": "#F2F2F7",
+            "highlight": "#1E4BC3",
+            "error": "#FF453A",
+            "header": "#c1cfff",
+            "row_odd": "#C7E0F4",
+            "row_even": "#F2F7FB",
+            "button": "#FFCA4F",
+            "invert_button": "#5AC8FA",
+            "button_background": "#0A84FF"
+    }
+    
+
+
 
     def __init__(self, master, theme="standard"):
         self.master = master
@@ -116,7 +135,7 @@ class LdapLookup:
         else:
             if hasattr(self, 'debug_window'):
                 self.debug_window.destroy()
-                del self.debug_text
+                del self.debug_text  # Ensure debug_text is deleted when window is closed
 
     def log_debug(self, message):
         if self.debug_var.get() and hasattr(self, 'debug_text'):
@@ -124,30 +143,44 @@ class LdapLookup:
         if DEBUGALL:
             print(f"DEBUG: {message}")
 
-    def log_error(self, message, exception):
+    def log_error(self,message, exception):
         error_entry = {
             "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             "message": message,
             "exception": str(exception)
         }
         log_file = "aderrors.json"
+        
+        #logger.error(json.dumps(error_entry))
+        
+        # Also write the error to errors.json
         try:
             with open("aderrors.json", "r") as file:
                 errors = json.load(file)
         except (FileNotFoundError, json.JSONDecodeError):
             errors = []
+        
         errors.append(error_entry)
         with open(log_file, "w") as file:
             json.dump(errors, file, indent=4)
         self.log_debug(f"Error logged: {message} - {exception}")
 
+
     def setup_ui(self):
         self.canvas = tk.Canvas(self.window)
         self.scrollbar = ttk.Scrollbar(self.window, orient="vertical", command=self.canvas.yview)
         self.scrollable_frame = ttk.Frame(self.canvas)
-        self.scrollable_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox("all")
+            )
+        )
+
         self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
         self.canvas.pack(side="left", fill="both", expand=True)
         self.scrollbar.pack(side="right", fill="y")
 
@@ -159,15 +192,19 @@ class LdapLookup:
 
         self.server_label = ttk.Label(self.frame, text="AD Server:", width=50)
         self.server_label.grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        
         self.server_var = tk.StringVar()
         self.server_dropdown = ttk.Combobox(self.frame, textvariable=self.server_var)
         self.server_dropdown['values'] = ['LUV', 'QAAD', 'DEVAD']
         self.server_dropdown.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
         self.server_dropdown.bind("<<ComboboxSelected>>", self.update_server_entry)
 
-        self.server_entry_label = ttk.Label(self.frame, text="Selected Server:")
+
+        # Add an entry field for the selected server
+        self.server_entry_label = ttk.Label(self.frame, text="Selected Server:")    
         self.server_entry_label.grid(row=1, column=0, padx=5, pady=5, sticky="w")
-        self.server_entry = ttk.Entry(self.frame, width=50)
+        
+        self.server_entry = ttk.Entry(self.frame, width=50)  
         self.server_entry.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
 
         self.username_label = ttk.Label(self.frame, text="Username:")
@@ -184,7 +221,7 @@ class LdapLookup:
         self.search_base_label.grid(row=4, column=0, padx=5, pady=5, sticky="w")
         self.search_base_entry = ttk.Entry(self.frame)
         self.search_base_entry.grid(row=4, column=1, padx=5, pady=5, sticky="ew")
-        self.search_base_entry.insert(0, "DC=SWACORP,DC=COM")
+        self.search_base_entry.insert(0, "DC=SWACORP,DC=COM")  
 
         self.function_var = tk.StringVar(value="user")
         self.function_label = ttk.Label(self.frame, text="Function:")
@@ -232,6 +269,7 @@ class LdapLookup:
 
         self.result_text = tk.Text(self.result_frame, height=15, width=80)
         self.result_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
         result_scrollbar = ttk.Scrollbar(self.result_frame, orient="vertical", command=self.result_text.yview)
         self.result_text.configure(yscrollcommand=result_scrollbar.set)
         result_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -243,6 +281,7 @@ class LdapLookup:
 
         self.user1_text = tk.Text(self.user1_frame, height=15, width=40)
         self.user1_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
         user1_scrollbar = ttk.Scrollbar(self.user1_frame, orient="vertical", command=self.user1_text.yview)
         self.user1_text.configure(yscrollcommand=user1_scrollbar.set)
         user1_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -254,6 +293,7 @@ class LdapLookup:
 
         self.user2_text = tk.Text(self.user2_frame, height=15, width=40)
         self.user2_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
         user2_scrollbar = ttk.Scrollbar(self.user2_frame, orient="vertical", command=self.user2_text.yview)
         self.user2_text.configure(yscrollcommand=user2_scrollbar.set)
         user2_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -265,6 +305,7 @@ class LdapLookup:
 
         self.group1_text = tk.Text(self.group1_frame, height=15, width=40)
         self.group1_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
         group1_scrollbar = ttk.Scrollbar(self.group1_frame, orient="vertical", command=self.group1_text.yview)
         self.group1_text.configure(yscrollcommand=group1_scrollbar.set)
         group1_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -276,6 +317,7 @@ class LdapLookup:
 
         self.group2_text = tk.Text(self.group2_frame, height=15, width=40)
         self.group2_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
         group2_scrollbar = ttk.Scrollbar(self.group2_frame, orient="vertical", command=self.group2_text.yview)
         self.group2_text.configure(yscrollcommand=group2_scrollbar.set)
         group2_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -287,6 +329,7 @@ class LdapLookup:
 
         self.missing_text_1 = tk.Text(self.missing_frame_1, height=15, width=40)
         self.missing_text_1.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
         missing_scrollbar_1 = ttk.Scrollbar(self.missing_frame_1, orient="vertical", command=self.missing_text_1.yview)
         self.missing_text_1.configure(yscrollcommand=missing_scrollbar_1.set)
         missing_scrollbar_1.pack(side=tk.RIGHT, fill=tk.Y)
@@ -298,6 +341,7 @@ class LdapLookup:
 
         self.missing_text_2 = tk.Text(self.missing_frame_2, height=15, width=40)
         self.missing_text_2.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
         missing_scrollbar_2 = ttk.Scrollbar(self.missing_frame_2, orient="vertical", command=self.missing_text_2.yview)
         self.missing_text_2.configure(yscrollcommand=missing_scrollbar_2.set)
         missing_scrollbar_2.pack(side=tk.RIGHT, fill=tk.Y)
@@ -316,6 +360,8 @@ class LdapLookup:
         self.export_missing_btn = ttk.Button(self.options_frame, text="Export Missing Groups", command=self.export_missing_groups)
         self.export_missing_btn.grid(row=4, column=0, padx=2, pady=2)
 
+
+        # Add a checkbox for enabling debug mode
         self.debug_var = tk.BooleanVar()
         self.debug_check = tk.Checkbutton(self.options_frame, text="Enable Debug", variable=self.debug_var, command=self.toggle_debug_window)
         self.debug_check.grid(row=0, column=0, padx=5, pady=5)
@@ -372,9 +418,6 @@ class LdapLookup:
             self.user2_search_entry.grid()
 
     def search_user(self):
-        self.missing_text_1.delete(1.0, tk.END)
-        self.missing_text_2.delete(1.0, tk.END)
-
         server = self.server_entry.get()
         username = self.username_entry.get()
         password = self.password_entry.get()
@@ -448,8 +491,7 @@ class LdapLookup:
             entries.extend(conn.entries)
 
         self.log_debug(f"LDAP Response: {entries}")
-        if DEBUGALL:
-            print(f"LDAP Response: {entries}")
+        print(f"LDAP Response: {entries}")
         if not entries:
             self.result_text.delete(1.0, tk.END)
             self.result_text.insert(tk.END, f"User {user_to_search} not found.\n")
@@ -457,18 +499,17 @@ class LdapLookup:
             self.result_text.insert(tk.END, f"Search Filter: {search_filter}\n")
             self.log_debug(f"User {user_to_search} not found.")
             return
-        
+
         user_entry = entries[0]
 
         self.result_text.delete(1.0, tk.END)
         self.result_text.insert(tk.END, f"User {user_to_search} attributes:\n")
-
-        for user_entry in entries:
-                if isinstance(user_entry, bytes):
-                    value = user_entry.decode('utf-8')
-                    self.result_text.insert(tk.END, f"{value}\n")
-                else:
-                    self.result_text.insert(tk.END, f"{user_entry}\n")
+        # Check if attributes are available
+        if hasattr(user_entry, 'attributes'):
+            for attribute, value in user_entry.attributes.items():
+                if isinstance(value, bytes):
+                    value = value.decode('utf-8')
+                self.result_text.insert(tk.END, f"{attribute}: {value}\n")
 
         # Optional: Perform a second search for user2
         if self.user2_search_entry.winfo_ismapped():
@@ -476,7 +517,7 @@ class LdapLookup:
             search_filter = f'(|(sAMAccountName={user2_to_search})(cn={user2_to_search})(uid={user2_to_search}))'
             self.log_debug(f"LDAP Search: Base={search_base}, Filter={search_filter}")
 
-            entries2 = []
+            entries = []
             try:
                 conn.search(
                     search_base,
@@ -487,7 +528,7 @@ class LdapLookup:
                 cookie = conn.result.get('controls', {}).get('1.2.840.113556.1.4.319', {}).get('value', {}).get('cookie')
                 
                 while cookie:
-                    entries2.extend(conn.entries)
+                    entries.extend(conn.entries)
                     conn.search(
                         search_base,
                         search_filter,
@@ -497,7 +538,7 @@ class LdapLookup:
                     )
                     cookie = conn.result.get('controls', {}).get('1.2.840.113556.1.4.319', {}).get('value', {}).get('cookie')
                     
-                entries2.extend(conn.entries)
+                entries.extend(conn.entries)
             except LDAPKeyError:
                 self.log_debug("LDAP server does not support paged search, performing regular search.")
                 conn.search(
@@ -505,11 +546,11 @@ class LdapLookup:
                     search_filter,
                     attributes=ldap3.ALL_ATTRIBUTES
                 )
-                entries2.extend(conn.entries)
+                entries.extend(conn.entries)
 
-            self.log_debug(f"LDAP Response: {entries2}")
+            self.log_debug(f"LDAP Response: {entries}")
 
-            if not entries2:
+            if not entries:
                 self.user2_text.delete(1.0, tk.END)
                 self.user2_text.insert(tk.END, f"User {user2_to_search} not found.\n")
                 self.user2_text.insert(tk.END, f"Search Base: {search_base}\n")
@@ -517,74 +558,45 @@ class LdapLookup:
                 self.log_debug(f"User {user2_to_search} not found.")
                 return
 
-            user2_entry = entries2[0]
-            user1_groups = []
+            user2_entry = entries[0]
 
             # Handle user2 text results
-            self.user1_text.delete(1.0, tk.END)
             self.user2_text.delete(1.0, tk.END)
-            self.user1_text.insert(tk.END, f"User {user_to_search} Groups:\n")
-            self.user2_text.insert(tk.END, f"User {user2_to_search} Groups:\n")
-            if user2_entry:
-                self.log_debug(f"User {user2_to_search} attributes:")
-                    
-                for user2_entry in entries2:
-                    if isinstance(user2_entry, bytes):
-                        value = user2_entry.decode('utf-8')
-                        self.log_debug(f"{value}\n")
-                    else:
-                        self.log_debug(f"{user2_entry}\n")
+            self.user2_text.insert(tk.END, f"User {user2_to_search} attributes:\n")
+            if hasattr(user2_entry, 'attributes'):
+                for attribute, value in user2_entry.attributes.items():
+                    if isinstance(value, bytes):
+                        value = value.decode('utf-8')
+                    self.user2_text.insert(tk.END, f"{attribute}: {value}\n")
 
-            for user_entry in entries:
-                if hasattr(user_entry, 'memberOf'):
-                    user1_groups = user_entry.memberOf
-
-            for user2_entry in entries2:
-                if hasattr(user2_entry, 'memberOf'):
-                    user2_groups = user2_entry.memberOf
-            if DEBUGALL:
-                print(f"Groups for User {user_to_search}: {user1_groups}")
-                print(f"Groups for User {user2_to_search}: {user2_groups}")
+            # Compare groups for both users
+            user1_groups = set(user_entry.attributes.get('memberOf', []))
+            user2_groups = set(user2_entry.attributes.get('memberOf', []))
 
             user1_groups = {group.decode('utf-8') if isinstance(group, bytes) else group for group in user1_groups}
             user2_groups = {group.decode('utf-8') if isinstance(group, bytes) else group for group in user2_groups}
 
             # Handle missing groups
             if not user1_groups:
-                self.log_debug(f"No groups found for User {user_to_search}.")
                 self.user1_text.insert(tk.END, "No groups found.\n")
             else:
-                self.log_debug(f"Groups for User {user_to_search}: {user1_groups}")
+                self.user1_text.insert(tk.END, "Groups:\n")
                 for group in user1_groups:
                     self.user1_text.insert(tk.END, f"{group}\n")
-                    self.log_debug(f"Group: {group}")
 
             if not user2_groups:
                 self.user2_text.insert(tk.END, "No groups found.\n")
-                self.log_debug(f"No groups found for User {user2_to_search}.")
             else:
-                self.log_debug(f"Groups for User {user2_to_search}: {user2_groups}")
+                self.user2_text.insert(tk.END, "Groups:\n")
                 for group in user2_groups:
                     self.user2_text.insert(tk.END, f"{group}\n")
-                    self.log_debug(f"Group: {group}")
 
             only_in_user1 = user1_groups - user2_groups
-            only_in_user2 = user2_groups - user1_groups
-            self.user1_text.insert(tk.END, f"\n")
-            self.user2_text.insert(tk.END, f"\n")
-            self.user1_text.insert(tk.END, f"Groups that User {user_to_search} has but User {user2_to_search} is missing:\n")
-            self.user2_text.insert(tk.END, f"Groups that User {user2_to_search} has but User {user_to_search} is missing:\n")
-            
-            if DEBUGALL:
-                print(f"Groups only in User {user_to_search}: {only_in_user1}")
-                print(f"Groups only in User {user2_to_search}: {only_in_user2}")
 
-         #   self.missing_text_1.insert(tk.END, f"Groups that User {user_to_search} has but User {user2_to_search} is missing:\n")
-            self.log_debug(f"Groups only in User {user_to_search}: {only_in_user1}")
+            self.missing_text_1.delete(1.0, tk.END)
+            self.missing_text_1.insert(tk.END, f"Groups that User {user_to_search} has but User {user2_to_search} is missing:\n")
             for group in only_in_user1:
-                self.user1_text.insert(tk.END, f"{group}\n")
-            for group in only_in_user2:
-                self.user2_text.insert(tk.END, f"{group}\n")
+                self.missing_text_1.insert(tk.END, f"{group}\n")
 
 
     def compare_groups(self):
