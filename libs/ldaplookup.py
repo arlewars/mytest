@@ -78,6 +78,8 @@ class LdapLookup:
         self.window.resizable(True, True)
         self.setup_ui()
         self.window.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.use_ldaps_var = tk.BooleanVar(value=True)
+        self.port_var = tk.StringVar(value="636")
 
     def on_closing(self):
         self.window.destroy()
@@ -323,6 +325,14 @@ class LdapLookup:
         self.close_btn = ttk.Button(self.options_frame, text="Close", command=self.close_application)
         self.close_btn.grid(row=1, column=0, padx=5, pady=5)
 
+        self.use_ldaps_check = ttk.Checkbutton(self.frame, text="Use LDAPS", variable=self.use_ldaps_var, command=self.toggle_ldaps)
+        self.use_ldaps_check.grid(row=0, column=2, padx=5, pady=5, sticky="w")
+
+        self.port_label = ttk.Label(self.frame, text="Port:")
+        self.port_label.grid(row=1, column=2, padx=5, pady=5, sticky="w")
+        self.port_entry = ttk.Entry(self.frame, textvariable=self.port_var, width=10)
+        self.port_entry.grid(row=1, column=3, padx=5, pady=5, sticky="w")
+
         self.toggle_function()
 
     def close_application(self):
@@ -371,24 +381,32 @@ class LdapLookup:
             self.user2_search_label.grid()
             self.user2_search_entry.grid()
 
+    def toggle_ldaps(self):
+        if self.use_ldaps_var.get():
+            self.port_var.set("636")
+        else:
+            self.port_var.set("389")
+
     def search_user(self):
         self.missing_text_1.delete(1.0, tk.END)
         self.missing_text_2.delete(1.0, tk.END)
 
         server = self.server_entry.get()
+        port = self.port_var.get()
+        use_ssl = self.use_ldaps_var.get()
         username = self.username_entry.get()
         password = self.password_entry.get()
         search_base = self.search_base_entry.get()
         user_to_search = self.user_search_entry.get()
 
         if DEBUGALL:
-            print(f"Executing search_user with values: server={server}, username={username}, password={password}, search_base={search_base}, user_to_search={user_to_search}")
+            print(f"Executing search_user with values: server={server}, port={port}, use_ssl={use_ssl}, username={username}, password={password}, search_base={search_base}, user_to_search={user_to_search}")
 
         try:
-            server_obj = Server(server)
+            server_obj = Server(server, port=int(port), use_ssl=use_ssl, get_info=ldap3.ALL, tls=ldap3.Tls(validate=ldap3.Tls.VALIDATE_NEVER))
             try:  # Attempt to bind with the provided username and password
                 conn = Connection(server_obj, user=username, password=password, auto_bind=True, client_strategy=ldap3.RESTARTABLE, auto_referrals=False)
-                self.log_debug(f"LDAP Bind: Server={server}, User={username}")
+                self.log_debug(f"LDAP Bind: Server={server}, Port={port}, Use SSL={use_ssl}, User={username}")
                 self.log_debug(f"Raw Bind Result: {conn.result}")
             except:
                 if self.server_var.get() in self.dn_templates:
@@ -396,7 +414,7 @@ class LdapLookup:
                         try:
                             user_dn = template.format(username=username)
                             conn = Connection(server_obj, user=user_dn, password=password, auto_bind=True, client_strategy=ldap3.RESTARTABLE, auto_referrals=False)
-                            self.log_debug(f"LDAP Bind: Server={server}, User={user_dn}")
+                            self.log_debug(f"LDAP Bind: Server={server}, Port={port}, Use SSL={use_ssl}, User={user_dn}")
                             self.log_debug(f"Raw Bind Result: {conn.result}")
                             break
                         except LDAPBindError as e:
@@ -404,7 +422,7 @@ class LdapLookup:
                             continue
                     else:
                         raise LDAPBindError("Automatic bind not successful - invalid credentials")
-                    self.log_debug(f"LDAP Bind: Server={server}, User={username}")
+                    self.log_debug(f"LDAP Bind: Server={server}, Port={port}, Use SSL={use_ssl}, User={username}")
         except LDAPBindError as e:
             messagebox.showerror("LDAP Bind Error", "Bind not successful - invalid credentials")
             self.log_debug(f"LDAP Bind Error: {e}")
@@ -415,7 +433,7 @@ class LdapLookup:
             return
 
         search_filter = f'(|(sAMAccountName={user_to_search})(cn={user_to_search})(uid={user_to_search}))'
-        self.log_debug(f"LDAP Search Command: ldapsearch -x -b '{search_base}' -s sub '{search_filter}'")
+        self.log_debug(f"LDAP Search Command: ldapsearch -x -H ldap{'s' if use_ssl else ''}://{server}:{port} -b '{search_base}' -s sub '{search_filter}'")
         self.log_debug(f"LDAP Search: Base={search_base}, Filter={search_filter}")
 
         entries = []
@@ -599,15 +617,17 @@ class LdapLookup:
 
     def compare_groups(self):
         server = self.server_entry.get()
+        port = self.port_var.get()
+        use_ssl = self.use_ldaps_var.get()
         username = self.username_entry.get()
         password = self.password_entry.get()
         search_base = self.search_base_entry.get()
         group1 = self.compare_group1_entry.get()
         group2 = self.compare_group2_entry.get()
 
-        server = ldap3.Server(server)
-        conn = ldap3.Connection(server, user=username, password=password, auto_bind=True)
-        self.log_debug(f"LDAP Bind: Server={server}, User={username}")
+        server_obj = ldap3.Server(server, port=int(port), use_ssl=use_ssl, get_info=ldap3.ALL, tls=ldap3.Tls(validate=ldap3.Tls.VALIDATE_NEVER))
+        conn = ldap3.Connection(server_obj, user=username, password=password, auto_bind=True)
+        self.log_debug(f"LDAP Bind: Server={server}, Port={port}, Use SSL={use_ssl}, User={username}")
         self.log_debug(f"Raw Bind Result: {conn.result}")
 
         if group1:
