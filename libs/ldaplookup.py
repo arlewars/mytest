@@ -389,6 +389,7 @@ class LdapLookup:
             try:  # Attempt to bind with the provided username and password
                 conn = Connection(server_obj, user=username, password=password, auto_bind=True, client_strategy=ldap3.RESTARTABLE, auto_referrals=False)
                 self.log_debug(f"LDAP Bind: Server={server}, User={username}")
+                self.log_debug(f"Raw Bind Result: {conn.result}")
             except:
                 if self.server_var.get() in self.dn_templates:
                     for template in self.dn_templates[self.server_var.get()]:
@@ -396,6 +397,7 @@ class LdapLookup:
                             user_dn = template.format(username=username)
                             conn = Connection(server_obj, user=user_dn, password=password, auto_bind=True, client_strategy=ldap3.RESTARTABLE, auto_referrals=False)
                             self.log_debug(f"LDAP Bind: Server={server}, User={user_dn}")
+                            self.log_debug(f"Raw Bind Result: {conn.result}")
                             break
                         except LDAPBindError as e:
                             self.log_debug(f"LDAP Bind Error with template: {e}")
@@ -413,6 +415,7 @@ class LdapLookup:
             return
 
         search_filter = f'(|(sAMAccountName={user_to_search})(cn={user_to_search})(uid={user_to_search}))'
+        self.log_debug(f"LDAP Search Command: ldapsearch -x -b '{search_base}' -s sub '{search_filter}'")
         self.log_debug(f"LDAP Search: Base={search_base}, Filter={search_filter}")
 
         entries = []
@@ -424,6 +427,7 @@ class LdapLookup:
                 attributes=ldap3.ALL_ATTRIBUTES,
                 paged_size=5
             )
+            self.log_debug(f"Raw Search Result: {conn.result}")
             cookie = conn.result.get('controls', {}).get('1.2.840.113556.1.4.319', {}).get('value', {}).get('cookie')
             
             while cookie:
@@ -435,6 +439,7 @@ class LdapLookup:
                     paged_size=5,
                     paged_cookie=cookie
                 )
+                self.log_debug(f"Raw Search Result: {conn.result}")
                 cookie = conn.result.get('controls', {}).get('1.2.840.113556.1.4.319', {}).get('value', {}).get('cookie')
 
             entries.extend(conn.entries)
@@ -445,6 +450,7 @@ class LdapLookup:
                 search_filter,
                 attributes=ldap3.ALL_ATTRIBUTES
             )
+            self.log_debug(f"Raw Search Result: {conn.result}")
             entries.extend(conn.entries)
 
         self.log_debug(f"LDAP Response: {entries}")
@@ -474,6 +480,7 @@ class LdapLookup:
         if self.user2_search_entry.winfo_ismapped():
             user2_to_search = self.user2_search_entry.get()
             search_filter = f'(|(sAMAccountName={user2_to_search})(cn={user2_to_search})(uid={user2_to_search}))'
+            self.log_debug(f"LDAP Search Command: ldapsearch -x -b '{search_base}' -s sub '{search_filter}'")
             self.log_debug(f"LDAP Search: Base={search_base}, Filter={search_filter}")
 
             entries2 = []
@@ -484,6 +491,7 @@ class LdapLookup:
                     attributes=ldap3.ALL_ATTRIBUTES,
                     paged_size=5
                 )
+                self.log_debug(f"Raw Search Result: {conn.result}")
                 cookie = conn.result.get('controls', {}).get('1.2.840.113556.1.4.319', {}).get('value', {}).get('cookie')
                 
                 while cookie:
@@ -495,6 +503,7 @@ class LdapLookup:
                         paged_size=5,
                         paged_cookie=cookie
                     )
+                    self.log_debug(f"Raw Search Result: {conn.result}")
                     cookie = conn.result.get('controls', {}).get('1.2.840.113556.1.4.319', {}).get('value', {}).get('cookie')
                     
                 entries2.extend(conn.entries)
@@ -505,6 +514,7 @@ class LdapLookup:
                     search_filter,
                     attributes=ldap3.ALL_ATTRIBUTES
                 )
+                self.log_debug(f"Raw Search Result: {conn.result}")
                 entries2.extend(conn.entries)
 
             self.log_debug(f"LDAP Response: {entries2}")
@@ -598,10 +608,13 @@ class LdapLookup:
         server = ldap3.Server(server)
         conn = ldap3.Connection(server, user=username, password=password, auto_bind=True)
         self.log_debug(f"LDAP Bind: Server={server}, User={username}")
+        self.log_debug(f"Raw Bind Result: {conn.result}")
 
         if group1:
+            self.log_debug(f"LDAP Search Command: ldapsearch -x -b '{search_base}' -s sub '(cn={group1})'")
             conn.search(search_base, f'(cn={group1})', attributes=['member'])
             self.log_debug(f"LDAP Search: Base={search_base}, Filter=(cn={group1})")
+            self.log_debug(f"Raw Search Result: {conn.result}")
             if not conn.entries:
                 self.group1_text.delete(1.0, tk.END)
                 self.group1_text.insert(tk.END, f"Group {group1} not found.\n")
@@ -612,8 +625,10 @@ class LdapLookup:
             group1_members = set()
 
         if group2:
+            self.log_debug(f"LDAP Search Command: ldapsearch -x -b '{search_base}' -s sub '(cn={group2})'")
             conn.search(search_base, f'(cn={group2})', attributes=['member'])
             self.log_debug(f"LDAP Search: Base={search_base}, Filter=(cn={group2})")
+            self.log_debug(f"Raw Search Result: {conn.result}")
             if not conn.entries:
                 self.group2_text.delete(1.0, tk.END)
                 self.group2_text.insert(tk.END, f"Group {group2} not found.\n")
