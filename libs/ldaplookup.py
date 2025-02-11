@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import ttk
 import ldap3
 from ldap3 import Server, Connection
+from ldap3 import Tls
+import ssl
 from datetime import datetime
 import json
 import csv
@@ -403,7 +405,8 @@ class LdapLookup:
             print(f"Executing search_user with values: server={server}, port={port}, use_ssl={use_ssl}, username={username}, password={password}, search_base={search_base}, user_to_search={user_to_search}")
 
         try:
-            server_obj = Server(server, port=int(port), use_ssl=use_ssl, get_info=ldap3.ALL, tls=ldap3.Tls(validate=ldap3.Tls.VALIDATE_NEVER))
+            tls_setting = Tls(validate=ssl.CERT_NONE)
+            server_obj = Server(server, port=int(port), use_ssl=use_ssl, get_info=ldap3.ALL, tls=tls_setting)
             try:  # Attempt to bind with the provided username and password
                 conn = Connection(server_obj, user=username, password=password, auto_bind=True, client_strategy=ldap3.RESTARTABLE, auto_referrals=False)
                 self.log_debug(f"LDAP Bind: Server={server}, Port={port}, Use SSL={use_ssl}, User={username}")
@@ -624,8 +627,8 @@ class LdapLookup:
         search_base = self.search_base_entry.get()
         group1 = self.compare_group1_entry.get()
         group2 = self.compare_group2_entry.get()
-
-        server_obj = ldap3.Server(server, port=int(port), use_ssl=use_ssl, get_info=ldap3.ALL, tls=ldap3.Tls(validate=ldap3.Tls.VALIDATE_NEVER))
+        tls_setting = Tls(validate=ssl.CERT_NONE)
+        server_obj = ldap3.Server(server, port=int(port), use_ssl=use_ssl, get_info=ldap3.ALL, tls=tls_setting)
         conn = ldap3.Connection(server_obj, user=username, password=password, auto_bind=True)
         self.log_debug(f"LDAP Bind: Server={server}, Port={port}, Use SSL={use_ssl}, User={username}")
         self.log_debug(f"Raw Bind Result: {conn.result}")
