@@ -1965,9 +1965,8 @@ class HTTPRequest:
                 await writer.wait_closed()
             except Exception as e:
                 # Use requests to initiate a connection and retrieve SSL certificate info
-                #url = f"https://{hostname}:{port}"
                 try:
-                    response = requests.get(url, timeout=10, verify=True)
+                    response = requests.get(url, timeout=20, verify=True)
                     # We can use the ssl module to fetch cert details
                     sock = response.raw._connection.sock
                     cert_binary = sock.getpeercert(binary_form=True)
@@ -1995,7 +1994,6 @@ class HTTPRequest:
             ssl_match = match_hostname(hostname, common_name) or any(match_hostname(hostname, name) for name in san)
 
         except Exception as e:
-           # print(e)
             ssl_match = False
 
         async with aiohttp.ClientSession(connector=connector, headers=headers, timeout=timeout) as session:
@@ -2004,7 +2002,7 @@ class HTTPRequest:
             if SetAsyncDebug:
                 enable_aiohttp_debugging()
             try:
-                async with session.get(url/path, ssl=ssl_context) as response:
+                async with session.get(encoded_url, ssl=ssl_context) as response:  # Fix the URL construction here
                     status_code = response.status
                     status_text = response.reason
                     response_time = (datetime.now() - start_time).total_seconds()
@@ -2023,6 +2021,13 @@ class HTTPRequest:
 
             except ClientConnectorCertificateError as e:
                 status_code = "SSL Error"
+                status_text = str(e)
+                response_time = (datetime.now() - start_time).total_seconds()
+                ssl_match = "✘"
+                return (url, regex, port, use_ssl, status_code, status_text, ssl_match, response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+            except urllib3.connection.HTTPSConnection.NameResolutionError as e:
+                status_code = "DNS Error"
                 status_text = str(e)
                 response_time = (datetime.now() - start_time).total_seconds()
                 ssl_match = "✘"
@@ -2049,6 +2054,12 @@ class HTTPRequest:
                 except requests.exceptions.SSLError as e:
                     print(f"SSL Certificate Error with requests: {e}")
                     return (url, regex, port, use_ssl, "Error", "SSL Certificate Error", "✘", "N/A", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                except urllib3.connection.HTTPSConnection.NameResolutionError as e:
+                    status_code = "DNS Error"
+                    status_text = str(e)
+                    response_time = (datetime.now() - start_time).total_seconds()
+                    ssl_match = "✘"
+                    return (url, regex, port, use_ssl, status_code, status_text, ssl_match, response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
                 except Exception as e:
                     print(f"Error with requests: {e}")
                     return (url, regex, port, use_ssl, "Error", str(e), "✘", "N/A", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
@@ -2066,15 +2077,25 @@ class HTTPRequest:
         async def update_table():
             tasks = []
             for entry in self.urls[env]:
-                if entry["use_ssl"]:
-                    tasks.append(fetch_url_thread(entry["url"], entry["regex"], entry["port"], entry["use_ssl"], cert_path, env))
-                else:
-                    tasks.append(fetch_url_nossl_thread(entry["url"], entry["regex"], entry["port"]))
+                try:
+                    hostname = entry["url"].split("://")[-1].split("/")[0]
+                    #socket.gethostbyname(entry["url"])
+                    socket.gethostbyname(hostname)
+                    if socket.gethostbyname(hostname):
+                        if entry["use_ssl"]:
+                            tasks.append(fetch_url_thread(entry["url"], entry["regex"], entry["port"], entry["use_ssl"], cert_path, env))
+                        else:
+                            tasks.append(fetch_url_nossl_thread(entry["url"], entry["regex"], entry["port"]))
+                except socket.gaierror as e:
+                    result = (entry["url"], entry["regex"], entry["port"], entry["use_ssl"], "Error", "Request Failed", "✘", "N/A", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                    table.insert("", "end", values=result)
+                    self.history[env].append(result)
 
             results = await asyncio.gather(*tasks)
             for result in results:
-                table.insert("", "end", values=result)
-                self.history[env].append(result)
+                if result:
+                    table.insert("", "end", values=result)
+                    self.history[env].append(result)
 
             self.save_history()
 
