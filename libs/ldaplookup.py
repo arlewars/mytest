@@ -74,12 +74,12 @@ class LdapLookup:
         self.window.title("LDAP Lookup Tool")
         self.window.geometry("1000x800")
         self.theme = theme if theme in self.NORD_STYLES else "standard"
+        self.use_ldaps_var = tk.BooleanVar(value=True)
+        self.port_var = tk.StringVar(value="636")
         self.apply_theme()
         self.window.resizable(True, True)
         self.setup_ui()
         self.window.protocol("WM_DELETE_WINDOW", self.on_closing)
-        self.use_ldaps_var = tk.BooleanVar(value=True)
-        self.port_var = tk.StringVar(value="636")
 
     def on_closing(self):
         self.window.destroy()
