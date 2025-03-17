@@ -1916,9 +1916,9 @@ class HTTPRequest:
     async def fetch_url(self, url, regex, port, use_ssl, cert_path, env):
         if SetAsyncDebug:
             print("Debugging enabled for aiohttp")
-    
+
         start_time = datetime.now()
-    
+
         # Create SSL context for self-signed certificates
         ssl_context = ssl.create_default_context()
         if getattr(self, f"{env}_ignore_ssl", False):
@@ -1926,28 +1926,28 @@ class HTTPRequest:
             ssl_context.verify_mode = ssl.CERT_NONE
         else:
             ssl_context.load_verify_locations(cert_path or certifi.where())
-    
+
         # Setup aiohttp connector
         timeout = aiohttp.ClientTimeout(total=60)
         connector = aiohttp.TCPConnector(ssl=ssl_context)
-    
+
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
-    
+
         # Ensure the URL is valid and contains the proper scheme
         if not url.startswith("http://") and not url.startswith("https://"):
             url = f"https://{url}"
-    
+
         # Parse URL details
         parsed_url = urlparse(url)
         hostname = parsed_url.hostname or url
         port = parsed_url.port or port
-    
+
         print(f"URL: {url}")
         print(f"Hostname: {hostname}")
         print(f"Port: {port}")
-    
+
         try:
             async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
                 async with session.get(url, headers=headers) as response:
@@ -1955,24 +1955,41 @@ class HTTPRequest:
                     content = await response.text()
                     print(f"Response status: {response.status}")
                     print(f"Response time: {response_time} seconds")
-    
+
+                    # Check SSL certificate
+                    ssl_object = response.connection.transport.get_extra_info('ssl_object')
+                    cert = ssl_object.getpeercert()
+                    ssl_match = False
+
+                    if 'subjectAltName' in cert:
+                        for typ, val in cert['subjectAltName']:
+                            if typ == 'DNS' and (val == hostname or val.startswith('*') and hostname.endswith(val.lstrip('*'))):
+                                ssl_match = True
+                                break
+                    if not ssl_match:
+                        for attr in cert.get('subject', []):
+                            if attr[0][0] == 'commonName' and (attr[0][1] == hostname or attr[0][1].startswith('*') and hostname.endswith(attr[0][1].lstrip('*'))):
+                                ssl_match = True
+                                break
+
+                    ssl_status = "✔" if ssl_match else "✘"
+
                     # Check regex match if provided
                     if regex and not re.search(regex, content):
-                        return url, regex, port, use_ssl, response.status, "Pattern Failed", "✘", response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        return url, regex, port, use_ssl, response.status, "Pattern Failed", ssl_status, response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     elif regex and re.search(regex, content):
-                        return url, regex, port, use_ssl, response.status, "OK", "✔", response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    
-                    return url, regex, port, use_ssl, response.status, response.reason, "✔", response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    
+                        return url, regex, port, use_ssl, response.status, "OK", ssl_status, response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+                    return url, regex, port, use_ssl, response.status, response.reason, ssl_status, response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
         except aiohttp.ClientConnectorCertificateError as e:
             print(f"SSL Certificate Error: {e}")
             return url, regex, port, use_ssl, "SSL Error", str(e), "✘", "N/A", datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    
+
         except Exception as e:
             print(f"Error: {e}")
             return url, regex, port, use_ssl, "Error", str(e), "✘", "N/A", datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
-
     def update_http_table(self, env):
         table = getattr(self, f"{env}_table")
         table.delete(*table.get_children())  # Clear the table
