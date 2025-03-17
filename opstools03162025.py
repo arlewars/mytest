@@ -1915,63 +1915,154 @@ class HTTPRequest:
 
     async def fetch_url(self, url, regex, port, use_ssl, cert_path, env):
         if SetAsyncDebug:
-            print("Debugging enabled for aiohttp")
-    
+            enable_aiohttp_debugging()
+
         start_time = datetime.now()
-    
-        # Create SSL context for self-signed certificates
+        cert_path = certifi.where()
         ssl_context = ssl.create_default_context()
-        if getattr(self, f"{env}_ignore_ssl", False):
+        if getattr(self, f"{env}_ignore_ssl"):
             ssl_context.check_hostname = False
             ssl_context.verify_mode = ssl.CERT_NONE
         else:
-            ssl_context.load_verify_locations(cert_path or certifi.where())
-    
-        # Setup aiohttp connector
+            ssl_context.load_verify_locations(cert_path)
         timeout = aiohttp.ClientTimeout(total=60)
         connector = aiohttp.TCPConnector(ssl=ssl_context)
-    
+
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Geko) Chrome/91.0.4472.124 Safari/537.36'
         }
-    
-        # Ensure the URL is valid and contains the proper scheme
         if not url.startswith("http://") and not url.startswith("https://"):
-            url = f"https://{url}"
-    
-        # Parse URL details
+            url = "https://" + url
         parsed_url = urlparse(url)
-        hostname = parsed_url.hostname or url
-        port = parsed_url.port or port
-    
+        scheme = parsed_url.scheme        # https
+        hostname = parsed_url.hostname    # www.app.com
+        path = parsed_url.path            # /appl1
         print(f"URL: {url}")
+        print(f"Scheme: {scheme}")
         print(f"Hostname: {hostname}")
-        print(f"Port: {port}")
-    
+        print(f"Path: {path}")
+
+        pattern = re.compile(r'^(?:http[s]?://)?([^:/\s]+)(?::(\d+))?')
+        match = pattern.match(url)
+        if match:
+            hostname = match.group(1)
+            port = int(match.group(2)) if match.group(2) else port
+        else:
+            print(f"Invalid URL: {url}")
+            return (url, regex, port, use_ssl, "Error", "Invalid URL", "✘", "N/A", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
         try:
-            async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
-                async with session.get(url, headers=headers) as response:
+            if SetAsyncDebug:
+                enable_aiohttp_debugging()
+            default_ssl_context = ssl.create_default_context()
+            default_ssl_context.check_hostname = False
+            default_ssl_context.verify_mode = ssl.CERT_NONE
+            try: #asyncio
+                reader, writer = await asyncio.open_connection(hostname, port, ssl=default_ssl_context, headers=headers, server_hostname=hostname)
+                ssl_object = writer.get_extra_info('ssl_object')
+                cert_binary = ssl_object.getpeercert(binary_form=True)
+                writer.close()
+                await writer.wait_closed()
+            except Exception as e:
+                # Use requests to initiate a connection and retrieve SSL certificate info
+                try:
+                    response = requests.get(url, timeout=20, verify=True)
+                    # We can use the ssl module to fetch cert details
+                    sock = response.raw._connection.sock
+                    cert_binary = sock.getpeercert(binary_form=True)
+                    return cert_binary
+                except requests.RequestException as e:
+                    print(f"Request failed: {e}")
+                    return None
+
+            x509_cert = x509.load_der_x509_certificate(cert_binary, default_backend())
+            for attribute in x509_cert.subject:
+                if attribute.oid == x509.NameOID.COMMON_NAME:
+                    common_name = attribute.value
+
+            try:
+                ext = x509_cert.extensions.get_extension_for_oid(x509.ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
+                san = ext.value.get_values_for_type(x509.DNSName)
+            except x509.ExtensionNotFound:
+                san = []
+
+            def match_hostname(hostname, pattern):
+                if pattern.startswith('*.'):
+                    return hostname.endswith(pattern[1:])
+                return hostname == pattern
+
+            ssl_match = match_hostname(hostname, common_name) or any(match_hostname(hostname, name) for name in san)
+
+        except Exception as e:
+            ssl_match = False
+
+        async with aiohttp.ClientSession(connector=connector, headers=headers, timeout=timeout) as session:
+            encoded_url = yarl.URL(url, encoded=True)
+
+            if SetAsyncDebug:
+                enable_aiohttp_debugging()
+            try:
+                async with session.get(encoded_url, ssl=ssl_context) as response:  # Fix the URL construction here
+                    status_code = response.status
+                    status_text = response.reason
                     response_time = (datetime.now() - start_time).total_seconds()
                     content = await response.text()
-                    print(f"Response status: {response.status}")
-                    print(f"Response time: {response_time} seconds")
-    
-                    # Check regex match if provided
+                    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+                    ssl_match = "N/A"
+            #        if use_ssl:
+            #            ssl_match = "Match" if ssl_context.check_hostname else "Mismatch"
                     if regex and not re.search(regex, content):
-                        return url, regex, port, use_ssl, response.status, "Pattern Failed", "✘", response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        status_text = "Pattern Failed"
                     elif regex and re.search(regex, content):
-                        return url, regex, port, use_ssl, response.status, "OK", "✔", response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    
-                    return url, regex, port, use_ssl, response.status, response.reason, "✔", response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    
-        except aiohttp.ClientConnectorCertificateError as e:
-            print(f"SSL Certificate Error: {e}")
-            return url, regex, port, use_ssl, "SSL Error", str(e), "✘", "N/A", datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    
-        except Exception as e:
-            print(f"Error: {e}")
-            return url, regex, port, use_ssl, "Error", str(e), "✘", "N/A", datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    
+                        status_text = "OK"
+            #        return (url, regex, port, use_ssl, status_code, status_text, ssl_match, response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                    return (url, regex, port, use_ssl, status_code, status_text, "✔" if ssl_match else "✘", response_time, timestamp)
+
+            except ClientConnectorCertificateError as e:
+                status_code = "SSL Error"
+                status_text = str(e)
+                response_time = (datetime.now() - start_time).total_seconds()
+                ssl_match = "✘"
+                return (url, regex, port, use_ssl, status_code, status_text, ssl_match, response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+            except urllib3.connection.HTTPSConnection.NameResolutionError as e:
+                status_code = "DNS Error"
+                status_text = str(e)
+                response_time = (datetime.now() - start_time).total_seconds()
+                ssl_match = "✘"
+                return (url, regex, port, use_ssl, status_code, status_text, ssl_match, response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+            except Exception as e:
+                try:
+                    # Fall back to using requests
+                    if use_ssl:
+                        response = requests.get(f"https://{hostname}{path}", headers=headers, timeout=60, verify=(cert_path if cert_path else True))
+                    else:
+                        response = requests.get(f"http://{hostname}{path}", headers=headers, timeout=60, verify=False)
+
+                    response_time = (datetime.now() - start_time).total_seconds()
+                    status_code = response.status_code
+                    status_text = response.reason
+                    body = response.text
+
+                    if re.search(regex, body):
+                        return (url, regex, port, use_ssl, status_code, status_text, "✔" if ssl_match else "✘", response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                    else:
+                        return (url, regex, port, use_ssl, status_code, "Regex not found", "✔" if ssl_match else "✘", response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+                except requests.exceptions.SSLError as e:
+                    print(f"SSL Certificate Error with requests: {e}")
+                    return (url, regex, port, use_ssl, "Error", "SSL Certificate Error", "✘", "N/A", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                except urllib3.connection.HTTPSConnection.NameResolutionError as e:
+                    status_code = "DNS Error"
+                    status_text = str(e)
+                    response_time = (datetime.now() - start_time).total_seconds()
+                    ssl_match = "✘"
+                    return (url, regex, port, use_ssl, status_code, status_text, ssl_match, response_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                except Exception as e:
+                    print(f"Error with requests: {e}")
+                    return (url, regex, port, use_ssl, "Error", str(e), "✘", "N/A", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
     def update_http_table(self, env):
         table = getattr(self, f"{env}_table")
