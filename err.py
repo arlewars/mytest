@@ -1,65 +1,65 @@
 from io import BytesIO
-#import resource
-from datetime import datetime, timedelta
-from logging.handlers import TimedRotatingFileHandler
 from aiohttp import ClientConnectorCertificateError
-from requests.auth import HTTPBasicAuth
 from cryptography import x509
-from cryptography.hazmat.backends import default_backend 
-from cryptography.x509.oid import NameOID, ExtensionOID
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.backends import default_backend 
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
-from PIL import Image, ImageTk
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID, ExtensionOID
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from logging.handlers import TimedRotatingFileHandler
+from OpenSSL import crypto
+from PIL import Image, ImageTk
+from ping3 import ping , verbose_ping #PingError
+from requests.auth import HTTPBasicAuth
+from tkinter import ttk, colorchooser, filedialog, messagebox, Toplevel, Label
+from urllib.parse import urlencode, urlparse, parse_qs
 from urllib3 import disable_warnings
 from urllib3.exceptions import InsecureRequestWarning
 disable_warnings(InsecureRequestWarning)
-from urllib.parse import urlencode, urlparse, parse_qs
-from OpenSSL import crypto
-from ping3 import ping , verbose_ping #PingError
-from tkinter import ttk, colorchooser, filedialog, messagebox, Toplevel, Label
 import tkinter as tk
 import warnings
 
-
-# Defer non-essential imports
-import sys
+# Built-in modules
 import os
+import io
+import sys
 import json
-import logging
-import asyncio
-import re
 import shlex
 import socket
-import platform
-import subprocess
-import base64
-import webbrowser
-import threading
-import contextlib
-import concurrent.futures
-import requests
-import certifi
-import ssl
-import time
-import aiodns
-import aiohttp
-import psutil
-import pygame
-import dns.resolver
-import yarl
+import re  
 import hashlib
 import hmac
+import random
+import base64
+import contextlib
+import concurrent.futures
 import http.server
-import io
-import urllib3
+import logging
+import platform
 import queue
 import socketserver
-import random
-import tempfile
-import fnmatch
+import ssl
+import subprocess
+import threading
+import time
+import webbrowser
+
+# Third-party modules
+#import resource  # Uncomment if needed
+import aiodns
+import aiohttp
+import asyncio
+import certifi
+import dns.resolver
+import psutil
+import pygame
+import pytz
+import requests
+import yarl
+
 
 python_executable = sys.executable
 current_path = os.getcwd()
@@ -81,9 +81,9 @@ handler.setFormatter(logging.Formatter('%(message)s'))
 logger.addHandler(handler)
 
 # Logging for aiohttp
-DebugAIOHTTP = True
-SetAsyncDebug = True
-RequestsDebug = True
+DebugAIOHTTP = False
+SetAsyncDebug = False
+RequestsDebug = False
 CA_path = ""
 URL_Pattern = re.compile(r'^https?://')
 
@@ -172,7 +172,6 @@ https_server = None
 https_server_thread = None  # Add a reference to the thread
 first_run = True
 def_CA_path = ""
-user_ssl = True
 
 def log_error(message, exception):
     error_entry = {
@@ -301,27 +300,6 @@ def dump_all_variables():
         global_vars = globals()
         json.dump(global_vars, sys.stdout, indent=1)
         print()
-def create_well_known_dropdown(frame, well_known_entry):
-    well_known_var = tk.StringVar()
-    well_known_dropdown = ttk.Combobox(frame, textvariable=well_known_var)
-    well_known_dropdown['values'] = [
-        'https://localhost:9031/.well-known/openid-configuration',
-        'https://sso.cfi.prod.aws.southwest.com/.well-known/openid-configuration',
-        'https://sso.fed.dev.aws.swacorp.com/.well-known/openid-configuration',
-        'https://sso.fed.dev.aws.swalife.com/.well-known/openid-configuration',
-        'https://sso.fed.prod.aws.swacorp.com/.well-known/openid-configuration',
-        'https://sso.fed.prod.aws.swalife.com/.well-known/openid-configuration',
-        'https://sso.fed.qa.aws.swacorp.com/.well-known/openid-configuration',
-        'https://sso.fed.qa.aws.swalife.com/.well-known/openid-configuration'
-    ]
-    well_known_dropdown.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
-
-    def on_select(event):
-        well_known_entry.delete(0, tk.END)
-        well_known_entry.insert(0, well_known_var.get())
-
-    well_known_dropdown.bind("<<ComboboxSelected>>", on_select)
-    return well_known_dropdown
 
 async def resolve_dns(domain):
     resolver = aiodns.DNSResolver(timeout=4)
@@ -480,27 +458,113 @@ def open_pingfederate_client_app(theme):
     pfclientapp_window = CustomWindow("PingFederate Client App", 1000, 600, theme)
     PingFederateClientApp(pfclientapp_window.frame, theme)
 
-def create_well_known_dropdown(frame, well_known_entry):
-    well_known_var = tk.StringVar()
-    well_known_dropdown = ttk.Combobox(frame, textvariable=well_known_var)
-    well_known_dropdown['values'] = [
-        'https://localhost:9031/.well-known/openid-configuration',
-        'https://sso.cfi.prod.aws.southwest.com/.well-known/openid-configuration',
-        'https://sso.fed.dev.aws.swacorp.com/.well-known/openid-configuration',
-        'https://sso.fed.dev.aws.swalife.com/.well-known/openid-configuration',
-        'https://sso.fed.prod.aws.swacorp.com/.well-known/openid-configuration',
-        'https://sso.fed.prod.aws.swalife.com/.well-known/openid-configuration',
-        'https://sso.fed.qa.aws.swacorp.com/.well-known/openid-configuration',
-        'https://sso.fed.qa.aws.swalife.com/.well-known/openid-configuration'
-    ]
-    well_known_dropdown.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
+def open_hosts_file_window(theme):
+    class CustomWindow(tk.Toplevel):
+        def __init__(self, title, width, height, theme, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.title(title)
+            self.geometry(f"{width}x{height}")
+            self.frame = ttk.Frame(self)
+            self.frame.grid(row=0, column=0, sticky="nsew")
+            self.create_widgets()
 
-    def on_select(event):
-        well_known_entry.delete(0, tk.END)
-        well_known_entry.insert(0, well_known_var.get())
+    class CustomTable:
+        def __init__(self, parent, columns, row, col, columnspan=1, title=None):
+            self.parent = parent # Save reference to parent (referring instance)
+            if title:
+                ttk.Label(parent, text=title, font=("Helvetica", 10, "bold")).grid(row=row, column=col, columnspan=columnspan, pady=5, sticky="w")
+            self.frame = ttk.Frame(parent)
+            self.frame.grid(row=row, column=col, columnspan=columnspan, padx=5, pady=5, sticky="nsew")
 
-    well_known_dropdown.bind("<<ComboboxSelected>>", on_select)
-    return well_known_dropdown
+            self.table = ttk.Treeview(self.frame, columns=columns, show="headings")
+            for col in columns:
+                self.table.heading(col, text=col)
+                self.table.column(col, anchor=tk.W, width=150)
+            self.table.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+            self.scrollbar_y = ttk.Scrollbar(self.frame, orient=tk.VERTICAL, command=self.table.yview)
+            self.scrollbar_x = ttk.Scrollbar(self.frame, orient=tk.HORIZONTAL, command=self.table.xview)
+            self.table.configure(yscroll=self.scrollbar_y.set, xscroll=self.scrollbar_x.set)
+            self.scrollbar_y.pack(side=tk.RIGHT, fill=tk.Y)
+            self.scrollbar_x.pack(side=tk.BOTTOM, fill=tk.X)
+
+            self.table.bind("<Double-1>", self.delete_row)
+            self.frame.rowconfigure(0, weight=1)
+            self.frame.columnconfigure(0, weight=1)
+
+        def delete_row(self, event):
+            selected_items = self.table.selection()
+            if selected_items:
+                for selected_item in selected_items:
+                    self.table.delete(selected_item)
+
+        def clear_table(self):
+            for item in self.table.get_children():
+                self.table.delete(item)
+
+        def insert_row(self, values):
+            if all(v == "" for v in values):
+                return
+            self.table.insert("", "end", values=values)
+
+    class HostsFileWindow(CustomWindow):
+        def create_widgets(self):
+            frame = self.frame
+            
+            columns = ["IP Address", "Hostname"]
+            self.custom_table = CustomTable(frame, columns, row=0, col=0, columnspan=2, title="Hosts File Entries")
+
+            # Read existing entries from hosts.json if it exists
+            if os.path.exists('hosts.json'):
+                with open('hosts.json', 'r') as file:
+                    hosts_data = json.load(file)
+                for entry in hosts_data:
+                    self.custom_table.insert_row(entry)
+            else:
+                # Pre-add 'localhost' entry if hosts.json does not exist
+                self.custom_table.insert_row(["127.0.0.1", "localhost"])
+
+            # Add entry fields
+            self.ip_entry = ttk.Entry(frame, width=20)
+            self.ip_entry.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
+
+            self.hostname_entry = ttk.Entry(frame, width=20)
+            self.hostname_entry.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
+
+            # Add button to insert new entry
+            add_button = ttk.Button(frame, text="Add Entry", command=self.add_host_entry)
+            add_button.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
+
+            # Add Save button
+            save_button = ttk.Button(frame, text="Save", command=self.save_hosts_file)
+            save_button.grid(row=3, column=0, padx=5, pady=5, sticky="e")
+
+            # Add Close button
+            close_button = ttk.Button(frame, text="Close", command=self.destroy)
+            close_button.grid(row=3, column=1, padx=5, pady=5, sticky="w")
+
+            frame.columnconfigure(0, weight=1)
+            frame.columnconfigure(1, weight=1)
+            frame.rowconfigure(0, weight=1)
+
+        def add_host_entry(self):
+            ip_address = self.ip_entry.get().strip()
+            hostname = self.hostname_entry.get().strip()
+            if ip_address and hostname:
+                self.custom_table.insert_row([ip_address, hostname])
+                self.ip_entry.delete(0, tk.END)
+                self.hostname_entry.delete(0, tk.END)
+
+        def save_hosts_file(self):
+            hosts_data = []
+            for item in self.custom_table.table.get_children():
+                hosts_data.append(self.custom_table.table.item(item)["values"])
+            with open('hosts.json', 'w') as file:
+                json.dump(hosts_data, file)
+            tk.messagebox.showinfo("Info", "Hosts file saved successfully.")
+
+    hosts_window = HostsFileWindow(title="Edit Hosts File", width=800, height=600, theme=theme)
+    hosts_window.grab_set()
 
 def open_tcp_tools_window(theme):
     tcp_tools_window = CustomWindow("TCP Tools", 800, 600, theme)
@@ -1158,7 +1222,6 @@ def open_oauth_window(theme):
 
     well_known_entry = create_labeled_entry(frame, "OAuth Well-Known Endpoint:", 1, 0)
     well_known_entry.insert(0,"https://sso.fed.dev.aws.swacorp.com/.well-known/openid-configuration")
-    create_well_known_dropdown(frame, well_known_entry)
     token_endpoint_entry = create_labeled_entry(frame, "Token Endpoint:", 3, 0)
     client_id_entry = create_labeled_entry(frame, "Client ID:", 5, 0)
     client_secret_entry = create_labeled_entry(frame, "Client Secret:", 7, 0)
@@ -1168,6 +1231,7 @@ def open_oauth_window(theme):
 
     well_known_table_frame = ttk.Frame(frame)
     well_known_table_frame.grid(row=0, column=3, rowspan=12, padx=10, pady=10, sticky="nsew")
+
     well_known_table = CustomTable(well_known_table_frame, ("Key", "Value"), 0, 0)
 
     def fetch_well_known_oauth():
@@ -1176,7 +1240,9 @@ def open_oauth_window(theme):
         if not well_known_url:
             result_text.delete(1.0, tk.END)
             result_text.insert(tk.END, "Please enter a Well-Known Endpoint URL.")
-            return        
+            return
+        
+
         try:
             try:
                 well_known_response = requests.get(well_known_url, verify=ssl_context)
@@ -1293,6 +1359,720 @@ def show_certificate_details():
     text_widget.insert(tk.END, public_key)
 
     ttk.Button(cert_window, text="Close", command=cert_window.destroy).pack(padx=5, pady=5)
+
+class OIDCDebugger:
+    def __init__(self, master, theme):
+        self.master = master
+        self.theme = theme
+        self.window = tk.Toplevel()
+        self.window.title("OIDC Debugger")
+        self.window.geometry("1400x600")
+        self.server_port = 4443
+        ssl_context = create_combined_ssl_context(CA_path, cert_path) if cert_path else None
+        self.setup_ui()
+
+    def apply_theme(self):
+        style = ttk.Style(self.window)
+        style.theme_use(self.theme)
+        theme_colors = NORD_STYLES.get(self.theme, NORD_STYLES["standard"])
+        self.window.configure(background=theme_colors["background"])
+    
+    def setup_ui(self):
+        self.frame = ttk.Frame(self.window, padding="10")
+        self.frame.pack(fill=tk.BOTH, expand=True)
+
+        self.endpoint_label = ttk.Label(self.frame, text="Select or enter well-known endpoint URL:")
+        self.endpoint_label.grid(row=0, column=0, padx=5, pady=5, sticky="w")
+
+        self.well_known_var = tk.StringVar()
+        self.well_known_dropdown = ttk.Combobox(self.frame, textvariable=self.well_known_var)
+
+        self.well_known_dropdown['values'] = [
+            'https://sso.cfi.prod.aws.southwest.com/.well-known/openid-configuration'
+            'https://sso.fed.dev.aws.swacorp.com/.well-known/openid-configuration',
+            'https://sso.fed.dev.aws.swalife.com/.well-known/openid-configuration',
+            'https://sso.fed.prod.aws.swacorp.com/.well-known/openid-configuration',
+            'https://sso.fed.prod.aws.swalife.com/.well-known/openid-configuration',
+            'https://sso.fed.qa.aws.swacorp.com/.well-known/openid-configuration',
+            'https://sso.fed.qa.aws.swalife.com/.well-known/openid-configuration'
+        ]
+        self.well_known_dropdown.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
+
+        # Bind the selection event to a function
+        self.well_known_dropdown.bind("<<ComboboxSelected>>", self.update_endpoint_entry)
+
+        self.endpoint_entry = ttk.Entry(self.frame, width=50)
+        self.endpoint_entry.grid(row=2, column=0, padx=5, pady=5)
+        self.endpoint_entry.insert(0, "Enter well-known endpoint URL")
+
+        self.server_name_label = ttk.Label(self.frame, text="Enter server name for redirect URL(optional):")
+        self.server_name_label.grid(row=3, column=0, padx=5, pady=5, sticky="w")
+
+        self.server_name_entry = ttk.Entry(self.frame, width=50)
+        self.server_name_entry.grid(row=4, column=0, padx=5, pady=5)
+        self.server_name_entry.insert(0, "localhost")
+
+        self.client_id_entry = ttk.Entry(self.frame, width=50)
+        self.client_id_entry.grid(row=5, column=0, padx=5, pady=5)
+        self.client_id_entry.insert(0, "Enter Client ID")
+
+        self.client_secret_entry = ttk.Entry(self.frame, width=50, show="*")
+        self.client_secret_entry.grid(row=6, column=0, padx=5, pady=5)
+        self.client_secret_entry.insert(0, "Enter Client Secret")
+
+        self.scope_entry = ttk.Entry(self.frame, width=50)
+        self.scope_entry.grid(row=7, column=0, padx=5, pady=5)
+        self.scope_entry.insert(0, "Enter Scopes (e.g., openid profile email)")
+
+        self.use_pkce = tk.BooleanVar()
+        ttk.Checkbutton(self.frame, text="Use PKCE", variable=self.use_pkce).grid(row=8, column=0, padx=5, pady=5)
+
+        self.auth_method = tk.StringVar(value="client_secret_post")
+        ttk.Radiobutton(self.frame, text="Client Secret Post", variable=self.auth_method, value="client_secret_post").grid(row=0, column=1, padx=1, pady=1, sticky="w")
+        ttk.Radiobutton(self.frame, text="Client Secret Basic", variable=self.auth_method, value="client_secret_basic").grid(row=1, column=1, padx=1, pady=1, sticky="w")
+
+        self.generate_request_btn = ttk.Button(self.frame, text="Generate Auth Request", command=self.generate_auth_request)
+        self.generate_request_btn.grid(row=9, column=0, padx=5, pady=5)
+
+        self.auth_url_text = tk.Text(self.frame, height=5, width=80)
+        self.auth_url_text.grid(row=10, column=0, padx=5, pady=5, sticky="ew")
+        auth_url_scrollbar = ttk.Scrollbar(self.frame, orient="vertical", command=self.auth_url_text.yview)
+        self.auth_url_text.configure(yscrollcommand=auth_url_scrollbar.set)
+        auth_url_scrollbar.grid(row=10, column=1, sticky="ns")
+
+        self.submit_btn = ttk.Button(self.frame, text="Submit Auth Request", command=self.submit_auth_request)
+        self.submit_btn.grid(row=11, column=0, padx=5, pady=5)
+
+        self.clear_text_checkbox = tk.BooleanVar()
+        ttk.Checkbutton(self.frame, text="Clear response text\n before next request", variable=self.clear_text_checkbox).grid(row=12, column=0, padx=5, pady=5, sticky="w")
+        self.log_oidc_process = tk.BooleanVar()
+        ttk.Checkbutton(self.frame, text="Log OIDC process\n in separate window", variable=self.log_oidc_process).grid(row=12, column=1, padx=5, pady=5, sticky="w")
+        
+        self.response_table_frame = ttk.Frame(self.frame)
+        self.response_table_frame.grid(row=0, column=2, rowspan=9, padx=5, pady=5, sticky="nsew")
+
+        table_scrollbar_y = ttk.Scrollbar(self.response_table_frame, orient="vertical")
+        table_scrollbar_x = ttk.Scrollbar(self.response_table_frame, orient="horizontal")
+
+        self.response_table = ttk.Treeview(self.response_table_frame, columns=("Key", "Value"), show="headings", yscrollcommand=table_scrollbar_y.set, xscrollcommand=table_scrollbar_x.set)
+        self.response_table.heading("Key", text="Key")
+        self.response_table.heading("Value", text="Value")
+
+        # Set column widths
+        self.response_table.column("Key", width=200)
+        self.response_table.column("Value", width=600)
+
+        table_scrollbar_y.config(command=self.response_table.yview)
+        table_scrollbar_x.config(command=self.response_table.xview)
+
+        self.response_table.grid(row=0, column=1, sticky="nsew")
+        table_scrollbar_y.grid(row=0, column=2, sticky="ns")
+        table_scrollbar_x.grid(row=1, column=1, sticky="ew")
+
+        self.response_text = tk.Text(self.frame, height=30, width=100)
+        self.response_text.grid(row=13, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
+        response_text_scrollbar = ttk.Scrollbar(self.frame, orient="vertical", command=self.response_text.yview)
+        self.response_text.configure(yscrollcommand=response_text_scrollbar.set)
+        response_text_scrollbar.grid(row=13, column=2, sticky="ns")
+
+        self.certificate_btn = ttk.Button(self.frame, text="Show Certificate", command=self.show_certificate)
+        self.certificate_btn.grid(row=14, column=0, padx=5, pady=5)
+
+        self.replace_certificate_btn = ttk.Button(self.frame, text="Replace Certificate", command=self.replace_certificate)
+        self.replace_certificate_btn.grid(row=15, column=0, padx=5, pady=5)
+
+        self.oidc_log_window = None
+        #Draw the screen and start network operations after UI is fully rendered 
+        self.window.update_idletasks() 
+        #self.window.after(100, self.after_ui_setup)
+        
+   # def after_ui_setup(self):
+        # Start any initial network operations here, like nslookup or HTTP requests
+   #     self.generate_self_signed_cert()
+   #     self.start_https_server()
+
+    def open_oidc_log_window(self):
+        if self.oidc_log_window is None or not self.oidc_log_window.winfo_exists():
+            self.oidc_log_window = tk.Toplevel(self.window)
+            self.oidc_log_window.title("OIDC Process Log")
+            self.oidc_log_window.geometry("600x400")
+
+            # Create a frame to hold the text widget and scrollbars
+            frame = ttk.Frame(self.oidc_log_window)
+            frame.pack(fill=tk.BOTH, expand=True)
+
+            # Create vertical and horizontal scrollbars
+            v_scrollbar = ttk.Scrollbar(frame, orient=tk.VERTICAL)
+            h_scrollbar = ttk.Scrollbar(frame, orient=tk.HORIZONTAL)
+
+            # Create the text widget
+            self.oidc_log_text = tk.Text(frame, wrap=tk.NONE, yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+            self.oidc_log_text.grid(row=0, column=0, sticky="nsew")
+
+            # Configure the scrollbars
+            v_scrollbar.config(command=self.oidc_log_text.yview)
+            h_scrollbar.config(command=self.oidc_log_text.xview)
+
+            # Pack the scrollbars
+            v_scrollbar.grid(row=0, column=1, sticky="ns")
+            h_scrollbar.grid(row=1, column=0, sticky="ew")
+
+            # Configure the frame to expand with the window
+            frame.grid_rowconfigure(0, weight=1)
+            frame.grid_columnconfigure(0, weight=1)            
+
+
+    def update_endpoint_entry(self, event):
+        selected_value = self.well_known_var.get()
+        if selected_value:
+            self.endpoint_entry.delete(0, tk.END)
+            self.endpoint_entry.insert(0, selected_value)
+        else:
+            self.endpoint_entry.delete(0, tk.END)
+            self.endpoint_entry.insert(0, "Enter well-known endpoint URL")
+
+
+    def copy_item_to_clipboard(self, event):
+        selected_item = self.response_table.selection()
+        if selected_item:
+            item = selected_item[0]
+            column = self.response_table.identify_column(event.x)
+            value = self.response_table.item(item, "values")[int(column[1:]) - 1]
+            self.window.clipboard_clear()
+            self.window.clipboard_append(value)
+            self.window.update()  # Keep the clipboard updated
+            messagebox.showinfo("Copied", f"Copied to clipboard:\n{value}")
+
+    def generate_auth_request(self):
+        if self.log_oidc_process.get():
+            self.open_oidc_log_window()
+
+        well_known_url = self.well_known_var.get()
+        if not well_known_url:
+            well_known_url = self.endpoint_entry.get().strip()
+
+        client_id = self.client_id_entry.get().strip()
+        client_secret = self.client_secret_entry.get().strip()
+        scopes = self.scope_entry.get().strip()
+        server_name = self.server_name_entry.get().strip()
+        if not server_name:
+            server_name = "localhost"
+
+        if not well_known_url or not client_id:
+            self.response_text.insert(tk.END, "Please enter the well-known endpoint and client credentials.\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, "Please enter the well-known endpoint and client credentials.\n")
+            return
+
+        try:
+            try:
+                response = requests.get(well_known_url, verify=ssl_context)
+            except Exception as ssl_error:
+                response = requests.get(well_known_url, verify=False)
+
+            #response = requests.get(well_known_url, verify=False)
+            if response.status_code != 200:
+                self.response_text.insert(tk.END, f"Error fetching well-known configuration: {response.status_code}\n")
+                log_error("Unable to query Well-known Endpoint",f"{response.status_code}")
+                return
+
+            config = response.json()
+            self.display_well_known_response(config)
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Well-known configuration response:\n{json.dumps(config, indent=4)}\n")
+
+
+            auth_endpoint = config.get("authorization_endpoint")
+            token_endpoint = config.get("token_endpoint")
+            introspection_endpoint = config.get("introspection_endpoint")
+            userinfo_endpoint = config.get("userinfo_endpoint")
+
+            if not auth_endpoint or not token_endpoint:
+                self.response_text.insert(tk.END, "Error: Unable to find authorization or token endpoint in the configuration.\n")
+                log_error("Missing data in OIDC Well-Known Endpoint", "Error in configuration")
+                return
+
+            state = self.generate_state()
+            nonce = self.generate_nonce()
+            params = {
+                "client_id": client_id,
+                "redirect_uri": f"https://{server_name}:{self.server_port}/callback",
+                "response_type": "code",
+                "scope": scopes,
+                "state": state,
+                "nonce": nonce
+            }
+
+            if self.use_pkce.get():
+                code_verifier, code_challenge = self.generate_pkce()
+                params.update({
+                    "code_challenge": code_challenge,
+                    "code_challenge_method": "S256"
+                })
+                self.code_verifier = code_verifier
+            else:
+                self.code_verifier = None
+
+            auth_url = f"{auth_endpoint}?{self.encode_params(params)}"
+            self.auth_url_text.delete(1.0, tk.END)
+            self.auth_url_text.insert(tk.END, auth_url)
+            self.state = state
+            self.token_endpoint = token_endpoint
+            self.client_id = client_id
+            self.client_secret = client_secret
+            self.introspect_endpoint = introspection_endpoint
+            self.userinfo_endpoint = userinfo_endpoint
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Authorization URL: {auth_url}\n")
+        except Exception as e:
+            self.response_text.insert(tk.END, f"Error generating auth request: {e}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Error generating auth request: {e}\n")
+            log_error("Error create OIDC Auth Request",e)
+
+        try:
+        # Generate the self-signed certificate
+            self.generate_self_signed_cert() 
+        # Start the HTTPS server after the certificate is created
+            self.start_https_server()
+        except Exception as e:
+            self.response_text.insert(tk.END, "Web server failed.\n")
+
+
+    def generate_state(self):
+        return base64.urlsafe_b64encode(os.urandom(24)).decode('utf-8').rstrip('=')
+
+    def generate_nonce(self):
+        return base64.urlsafe_b64encode(os.urandom(24)).decode('utf-8').rstrip('=')
+
+    def generate_pkce(self):
+        code_verifier = base64.urlsafe_b64encode(os.urandom(32)).decode('utf-8').rstrip('=')
+        code_challenge = base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode('utf-8')).digest()).decode('utf-8').rstrip('=')
+        return code_verifier, code_challenge
+
+    def encode_params(self, params):
+        return '&'.join([f"{k}={requests.utils.quote(v)}" for k, v in params.items()])
+
+    def submit_auth_request(self):
+        auth_url = self.auth_url_text.get(1.0, tk.END).strip()
+        if not auth_url:
+            self.response_text.insert(tk.END, "Please generate an authentication request URL first.\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, "Authorization URL is empty. Generate the auth request first.\n")
+      
+            return
+        webbrowser.open(auth_url)
+        self.response_text.insert(tk.END, "Please complete the authentication in your browser.\n")
+        if self.log_oidc_process.get():
+            self.oidc_log_text.insert(tk.END, f"Opened Authorization URL: {auth_url}\n")
+
+        self.response_text.insert(tk.END, f"Opened Authorization URL: {auth_url}\n")
+
+
+    def generate_self_signed_cert(self):
+        server_name = self.server_name_entry.get().strip()
+        if not server_name:
+            server_name = "localhost"
+        k = crypto.PKey()
+        k.generate_key(crypto.TYPE_RSA, 2048)
+        cert = crypto.X509()
+        cert.get_subject().C = "US"
+        cert.get_subject().ST = "Texas"
+        cert.get_subject().L = "Dallas"
+        cert.get_subject().O = "Southwest Airlines"
+        cert.get_subject().OU = "CyberOps"
+        cert.get_subject().CN = server_name
+        cert.set_serial_number(1000)
+        cert.gmtime_adj_notBefore(0)
+        cert.gmtime_adj_notAfter(10*365*24*60*60)
+        cert.set_issuer(cert.get_subject())
+        cert.set_pubkey(k)
+        cert.sign(k, 'sha256')
+
+        with open("server.crt", "wt") as f:
+            f.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert).decode('utf-8'))
+        with open("server.key", "wt") as f:
+            f.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, k).decode('utf-8'))
+        self.cert = cert
+
+    def show_certificate(self):
+        # Show the public certificate
+        cert_pem = crypto.dump_certificate(crypto.FILETYPE_PEM, self.cert).decode('utf-8')
+        cert = x509.load_pem_x509_certificate(cert_pem.encode('utf-8'), default_backend())
+
+        # Display the certificate details
+        cert_details = f"Public Certificate:\n{cert_pem}\n\n"
+        cert_details += f"Issuer: {cert.issuer.rfc4514_string()}\n"
+        cert_details += f"Subject: {cert.subject.rfc4514_string()}\n"
+        cert_details += f"Serial Number: {cert.serial_number}\n"
+        cert_details += f"Not Before: {cert.not_valid_before}\n"
+        cert_details += f"Not After: {cert.not_valid_after}\n"
+
+        self.response_text.delete(1.0, tk.END)
+        self.response_text.insert(tk.END, cert_details)
+
+    def replace_certificate(self):
+        cert_file_path = tk.filedialog.askopenfilename(title="Select Certificate File", filetypes=[("Certificate Files", "*.crt *.pem")])
+        key_file_path = tk.filedialog.askopenfilename(title="Select Key File", filetypes=[("Key Files", "*.key *.pem")])
+
+        if cert_file_path and key_file_path:
+            with open(cert_file_path, "r") as cert_file:
+                self.cert = crypto.load_certificate(crypto.FILETYPE_PEM, cert_file.read())
+            with open(key_file_path, "r") as key_file:
+                self.key = crypto.load_privatekey(crypto.FILETYPE_PEM, key_file.read())
+            self.response_text.delete(1.0, tk.END)
+            self.response_text.insert(tk.END, "Certificate and key replaced successfully.\n")
+        else:
+            self.response_text.delete(1.0, tk.END)
+            self.response_text.insert(tk.END, "Certificate or key file not selected.\n")
+
+    def start_https_server(self):
+        global https_server, https_server_thread
+
+        server_name = self.server_name_entry.get().strip()
+        if not server_name:
+            server_name = "localhost"
+        # Check if the server name resolves
+        try:
+            socket.gethostbyname(server_name)
+        except socket.error:
+            self.response_text.insert(tk.END, f"Server name '{server_name}' does not resolve. Using 127.0.0.1 instead.\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Server name '{server_name}' does not resolve. Using 127.0.0.1 instead.\n")
+            server_name = "localhost"
+            
+        if https_server is not None: 
+            self.response_text.insert(tk.END, "HTTPS server is already running.\n")
+            return
+
+        handler = self.create_https_handler()
+        https_server = socketserver.TCPServer((server_name, self.server_port), handler)
+
+        context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        context.load_cert_chain(certfile='server.crt', keyfile='server.key')
+        https_server.socket = context.wrap_socket(https_server.socket, server_side=True)
+
+        https_server_thread = threading.Thread(target=https_server.serve_forever)
+        https_server_thread.daemon = True
+        try:
+            https_server_thread.start()
+            self.response_text.insert(tk.END, f"HTTPS server started on https://{server_name}:{self.server_port}/callback\n\n")
+            self.response_text.insert(tk.END, f"Please confirm {self.client_id} has the redirect uri:  https://{server_name}:{self.server_port}/callback\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"HTTPS server started on https://{server_name}:{self.server_port}/callback\n\n")
+                self.oidc_log_text.insert(tk.END, f"Please confirm {self.client_id} has the redirect uri:  https://{server_name}:{self.server_port}/callback\n")
+                self.add_horizontal_rule()
+
+        except Exception as e:
+            self.response_text.insert(tk.END, f"HTTPS server https://{server_name}:{self.server_port} Failed.\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"HTTPS server https://{server_name}:{self.server_port} Failed.: {e}\n")
+                self.add_horizontal_rule()
+            log_error("HTTPS server Failed.", e)
+    
+    def add_horizontal_rule(self):
+            self.response_text.insert(tk.END, f"---------------------------------------------------\n\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"---------------------------------------------------\n\n")
+
+    
+    def create_https_handler(self):
+        parent = self
+
+        class HTTPSHandler(http.server.SimpleHTTPRequestHandler):
+            def do_GET(self):
+                if self.path.startswith('/callback'):
+                    query = self.path.split('?')[-1]
+                    params = {k: v for k, v in (item.split('=') for item in query.split('&'))}
+                    code = params.get('code')
+                    parent.response_text.insert(tk.END, f"Received code: {code}\n")
+                    if parent.log_oidc_process.get():
+                        parent.oidc_log_text.insert(tk.END, f"Received authorization code: {code}\n")
+                    parent.exchange_code_for_tokens(code)
+                    self.send_response(200)
+                    self.send_header('Content-type', 'text/html')
+                    self.end_headers()
+                    self.wfile.write(b"Authorization code received. You can close this window.")
+
+                else:
+                    self.send_error(404, "Not Found")
+
+            def do_POST(self):
+                if self.path == '/kill_server':
+                    threading.Thread(target=shutdown_https_server).start()
+                    self.send_response(200)
+                    self.send_header('Content-type', 'text/html')
+                    self.end_headers()
+                    self.wfile.write(b"Server shutdown initiated.")
+                if parent.log_oidc_process.get():
+                    parent.oidc_log_text.insert(tk.END, "Server shutdown initiated.\n")
+        return HTTPSHandler   
+
+
+    def exchange_code_for_tokens(self, code):
+        server_name = self.server_name_entry.get().strip()
+        if not server_name:
+            server_name = "localhost"
+        try:
+            data = {
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": f"https://{server_name}:{self.server_port}/callback",
+                "client_id": self.client_id,
+            }
+            headers = {}
+            if self.code_verifier:
+                data["code_verifier"] = self.code_verifier
+            if self.auth_method.get() == "client_secret_post":
+                data["client_secret"] = self.client_secret
+            elif self.auth_method.get() == "client_secret_basic":
+                basic_auth = base64.b64encode(f"{self.client_id}:{self.client_secret}".encode()).decode()
+                headers["Authorization"] = f"Basic {basic_auth}"
+            elif self.auth_method.get() == "client_secret_jwt":
+                now = int(time.time())
+                payload = {
+                    "iss": self.client_id,
+                    "sub": self.client_id,
+                    "aud": self.token_endpoint,
+                    "exp": now + 300,  # Token expires in 5 minutes
+                    "iat": now
+                }
+
+                def base64url_encode(input):
+                    return base64.urlsafe_b64encode(input).decode('utf-8').rstrip('=')
+
+                encoded_header = base64url_encode(json.dumps(headers).encode('utf-8'))
+                encoded_payload = base64url_encode(json.dumps(payload).encode('utf-8'))
+                signature = base64.urlsafe_b64encode(
+                    hmac.new(self.client_secret.encode('utf-8'), f"{encoded_header}.{encoded_payload}".encode('utf-8'), hashlib.sha256).digest()
+                ).decode('utf-8').rstrip('=')
+
+                client_assertion = f"{encoded_header}.{encoded_payload}.{signature}"
+                data["client_assertion"] = client_assertion
+                data["client_assertion_type"] = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Token Exchange Request Data: {json.dumps(data, indent=4)}\n")
+                self.add_horizontal_rule()
+
+            try:
+                response = requests.post(self.token_endpoint, data=data, headers=headers, verify=ssl_context)
+            except Exception as ssl_error:
+                response = requests.post(self.token_endpoint, data=data, headers=headers, verify=False)
+            #response = requests.post(self.token_endpoint, data=data, headers=headers, verify=False)
+            
+            if response.status_code != 200:
+                self.response_text.insert(tk.END, f"Error fetching tokens: {response.status_code}\n")
+                if self.log_oidc_process.get():
+                    self.oidc_log_text.insert(tk.END, f"Error fetching tokens: {response.status_code}\n")
+                    self.add_horizontal_rule()
+
+
+                return
+
+            tokens = response.json()
+            self.display_tokens(tokens)
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Token Exchange Response: {json.dumps(tokens, indent=4)}\n")
+                self.add_horizontal_rule()
+
+            
+        except Exception as e:
+            self.response_text.insert(tk.END, f"Error exchanging code for tokens: {e}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Error exchanging code for tokens: {e}\n")
+                self.add_horizontal_rule()
+
+            log_error("Error exchanging code for tokens", e)
+
+    def stop_https_server(self): 
+        shutdown_https_server() 
+        self.response_text.insert(tk.END, "HTTPS server stopped.\n")
+
+    def display_tokens(self, tokens):
+        try:
+        # Clear the response text if the checkbox is checked 
+            if self.clear_text_checkbox.get(): 
+                self.response_text.delete(1.0, tk.END)
+            #self.response_text.delete(1.0, tk.END)
+            
+            self.response_text.insert(tk.END, f"Display Tokens:\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, "Display Tokens:\n")
+                self.add_horizontal_rule()
+
+            for key, value in tokens.items():
+                self.response_text.insert(tk.END, f"{key}: {value}\n")
+                if self.log_oidc_process.get():
+                    self.oidc_log_text.insert(tk.END, f"{key}: {value}\n")
+                    self.add_horizontal_rule()
+
+
+            if "id_token" in tokens:
+                self.decode_jwt(tokens["id_token"])
+            if "access_token" in tokens:
+                self.userinfo_query(tokens["access_token"], "access")
+            if "access_token" in tokens:
+                self.introspect_token(tokens["access_token"], "access")
+            if "refresh_token" in tokens:
+                self.introspect_token(tokens["refresh_token"], "refresh")
+        except Exception as e:
+            self.response_text.insert(tk.END, f"Error displaying tokens: {e}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Error displaying tokens: {e}\n")
+                self.add_horizontal_rule()
+            log_error("Error displaying tokens", e)
+
+
+    def decode_jwt(self, token):
+        try:
+            header, payload, signature = token.split('.')
+            header_decoded = base64.urlsafe_b64decode(header + '==').decode('utf-8')
+            payload_decoded = base64.urlsafe_b64decode(payload + '==').decode('utf-8')
+            decoded = {
+                "header": json.loads(header_decoded),
+                "payload": json.loads(payload_decoded),
+                "signature": signature
+            }
+            self.response_text.insert(tk.END, f"Decoded ID Token: {json.dumps(decoded, indent=4)}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Decoded ID Token: {json.dumps(decoded, indent=4)}\n")
+                self.add_horizontal_rule()
+
+        except Exception as e:
+            self.response_text.insert(tk.END, f"Error decoding JWT: {e}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Error decoding JWT: {e}\n")
+                self.add_horizontal_rule()
+
+
+    def userinfo_query(self, token, token_type):
+        try:
+            headers = {
+                'Authorization': f'Bearer {token}'
+            }
+
+            try:
+                response = requests.get(f"{self.userinfo_endpoint}", headers=headers, verify=ssl_context)
+            except Exception as ssl_error:
+                response = requests.get(f"{self.userinfo_endpoint}", headers=headers, verify=False)
+            #response = requests.get(f"{self.userinfo_endpoint}", headers=headers, verify=False)
+           
+            if response.status_code != 200:
+                self.response_text.insert(tk.END, f"Error userinfo {token_type} token: {response.status_code}\n")
+                if self.log_oidc_process.get():
+                    self.oidc_log_text.insert(tk.END, f"Error userinfo {token_type} token: {response.status_code}\n")
+                    self.add_horizontal_rule()
+
+                return
+
+            userinfo = response.json()
+            self.response_text.insert(tk.END, f"UserInfo {token_type.capitalize()} Token: {json.dumps(userinfo, indent=4)}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"UserInfo {token_type.capitalize()} Token: {json.dumps(userinfo, indent=4)}\n")
+                self.add_horizontal_rule()
+        except Exception as e:
+            self.response_text.insert(tk.END, f"Error calling UserInfo: {e}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Error calling UserInfo: {e}\n")
+                self.add_horizontal_rule()
+
+
+    def introspect_token(self, token, token_type):
+        try:
+            data = {
+                "token": token,
+                "token_type_hint": token_type,
+                "client_id": self.client_id,
+            }
+            headers = {}
+            if self.auth_method.get() == "client_secret_post":
+                data["client_secret"] = self.client_secret
+            elif self.auth_method.get() == "client_secret_basic":
+                basic_auth = base64.b64encode(f"{self.client_id}:{self.client_secret}".encode()).decode()
+                headers["Authorization"] = f"Basic {basic_auth}"
+            elif self.auth_method.get() == "client_secret_jwt":
+                now = int(time.time())
+                payload = {
+                    "iss": self.client_id,
+                    "sub": self.client_id,
+                    "aud": self.introspect_endpoint,
+                    "exp": now + 300,  # Token expires in 5 minutes
+                    "iat": now
+                }
+                client_assertion = base64.b64encode(json.dumps(payload).encode('utf-8')).decode('utf-8')
+                data["client_assertion"] = client_assertion
+                data["client_assertion_type"] = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+
+            try:
+                response = requests.post(self.introspect_endpoint, data=data, headers=headers, verify=ssl_context)
+            except Exception as ssl_error:
+                response = requests.post(self.introspect_endpoint, data=data, headers=headers, verify=False)
+            #response = requests.post(self.introspect_endpoint, data=data, headers=headers, verify=False)
+
+            if response.status_code != 200:
+                self.response_text.insert(tk.END, f"Error introspecting {token_type} token: {response.status_code}\n")
+                if self.log_oidc_process.get():
+                    self.oidc_log_text.insert(tk.END, f"Error introspecting {token_type} token: {response.status_code}\n")
+                    self.add_horizontal_rule()
+                return
+
+            introspection = response.json()
+            self.response_text.insert(tk.END, f"Introspected {token_type.capitalize()} Token: {json.dumps(introspection, indent=4)}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Introspected {token_type.capitalize()} Token: {json.dumps(introspection, indent=4)}\n")
+                self.add_horizontal_rule()
+        except Exception as e:
+            self.response_text.insert(tk.END, f"Error introspecting {token_type} token: {e}\n")
+            if self.log_oidc_process.get():
+                self.oidc_log_text.insert(tk.END, f"Error introspecting {token_type} token: {e}\n")
+                self.add_horizontal_rule()
+            log_error("Error introspecting token", e)
+
+    def display_well_known_response(self, config):
+        # Clear only the treeview items instead of destroying all widgets
+        if hasattr(self, 'response_table'):
+            self.response_table.delete(*self.response_table.get_children())
+        else:
+            # Add scrollbars
+            table_scrollbar_y = ttk.Scrollbar(self.response_table_frame, orient="vertical")
+            table_scrollbar_x = ttk.Scrollbar(self.response_table_frame, orient="horizontal")
+
+            columns = ("Key", "Value")
+            self.response_table = ttk.Treeview(self.response_table_frame, columns=columns, show="headings", yscrollcommand=table_scrollbar_y.set, xscrollcommand=table_scrollbar_x.set)
+            self.response_table.heading("Key", text="Key")
+            self.response_table.heading("Value", text="Value")
+
+            # Set column widths
+            self.response_table.column("Key", width=200)
+            self.response_table.column("Value", width=600)
+
+            # Attach scrollbars to the table
+            table_scrollbar_y.config(command=self.response_table.yview)
+            table_scrollbar_x.config(command=self.response_table.xview)
+
+            self.response_table.grid(row=1, column=1, sticky="nsew")
+            table_scrollbar_y.grid(row=1, column=0, sticky="ns")
+            table_scrollbar_x.grid(row=0, column=1, sticky="ew")
+
+            # Increase the row height
+            style = ttk.Style()
+            style.configure("Treeview", rowheight=30)
+
+            # Bind double-click event
+            self.response_table.bind("<Double-1>", self.on_item_double_click)
+
+        for key, value in config.items():
+            self.response_table.insert("", "end", values=(key, value))
+
+    def on_item_double_click(self, event):
+        item = event.widget.selection()[0]
+        column = event.widget.identify_column(event.x)
+        value = event.widget.item(item, "values")[int(column[1:]) - 1]
+        self.master.clipboard_clear()
+        self.master.clipboard_append(value)
+        self.master.update()  # Keep the clipboard updated
+        tk.messagebox.showinfo("Copied", f"Copied to clipboard:\n{value}")
 
 
 class CustomWindow:
@@ -1481,7 +2261,7 @@ class NSLookup:
         table = ttk.Treeview(frame, columns=("Domain", "Name", "IP Address", "Last IP Change", "Hanger", "Timestamp"), show="headings")
         for col in ("Domain", "Name", "IP Address", "Last IP Change", "Hanger", "Timestamp"):
             table.heading(col, text=col)
-            table.column(col, width=100, anchor="center")
+            table.column(col, anchor=tk.W, width=150)
         table.grid(row=2, column=0, columnspan=6, padx=5, pady=5, sticky="nsew")
 
         scrollbar_y = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=table.yview)
@@ -1654,12 +2434,6 @@ class HTTPRequest:
         self.production_ignore_ssl = False
         self.qa_ignore_ssl = False
         self.development_ignore_ssl = False
-        try:
-            cert_path = certifi.where()
-        except ImportError:
-            cert_path = None
-        self.ssl_context = ssl.create_default_context()
-        self.ssl_context.load_verify_locations(cert_path)
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Geko) Chrome/91.0.4472.124 Safari/537.36'
         }
@@ -1708,6 +2482,7 @@ class HTTPRequest:
         logs.append(log_entry)
         with open(self.debug_log_file, "w") as file:
             json.dump(logs, file, indent=4)
+
 
     def apply_theme(self, theme, env):
         style = ttk.Style()
@@ -1786,6 +2561,7 @@ class HTTPRequest:
         table = ttk.Treeview(frame, columns=("URL", "Regex Pattern", "Port", "Use SSL", "Status Code", "Status Text", "SSL Match", "Response Time", "Timestamp"), show="headings")
         for col in ("URL", "Regex Pattern", "Port", "Use SSL", "Status Code", "Status Text", "SSL Match", "Response Time", "Timestamp"):
             table.heading(col, text=col)
+//            table.column(col, anchor=tk.W, width=150)
             table.column(col, width=100, anchor="center")
         table.grid(row=2, column=0, columnspan=8, padx=5, pady=5, sticky="nsew")
 
@@ -1913,6 +2689,7 @@ class HTTPRequest:
         self.save_urls(env)
         self.update_http_table(env)
 
+
     async def fetch_url(self, url, regex, port, use_ssl, cert_path, env):
         if SetAsyncDebug:
             print("Debugging enabled for aiohttp")
@@ -1956,22 +2733,27 @@ class HTTPRequest:
                     print(f"Response status: {response.status}")
                     print(f"Response time: {response_time} seconds")
 
-                    # Check SSL certificate
-                    ssl_object = response.connection.transport.get_extra_info('ssl_object')
-                    cert = ssl_object.getpeercert()
+                    socketconnection = ssl_context.wrap_socket(socket.socket(socket.AF_INET), server_hostname=hostname)
+                    try:
+                        socketconnection.connect((hostname,port))
+                        cert = socketconnection.getpeercert()
+                    except Exception as e:
+                        print("Connection failed")
+                    finally:
+                        socketconnection.close()
+                            
                     ssl_match = False
-
-                    if 'subjectAltName' in cert:
-                        for typ, val in cert['subjectAltName']:
-                            if typ == 'DNS' and (val == hostname or val.startswith('*') and hostname.endswith(val.lstrip('*'))):
-                                ssl_match = True
-                                break
-                    if not ssl_match:
-                        for attr in cert.get('subject', []):
-                            if attr[0][0] == 'commonName' and (attr[0][1] == hostname or attr[0][1].startswith('*') and hostname.endswith(attr[0][1].lstrip('*'))):
-                                ssl_match = True
-                                break
-
+                    if cert:
+                        if 'subjectAltName' in cert:
+                            for typ, val in cert['subjectAltName']:
+                                if typ == 'DNS' and (val == hostname or val.startswith('*') and hostname.endswith(val.lstrip('*'))):
+                                    ssl_match = True
+                                    break
+                        if not ssl_match:
+                            for attr in cert.get('subject', []):
+                                if attr[0][0] == 'commonName' and (attr[0][1] == hostname or attr[0][1].startswith('*') and hostname.endswith(attr[0][1].lstrip('*'))):
+                                    ssl_match = True
+                                    break
                     ssl_status = "✔" if ssl_match else "✘"
 
                     # Check regex match if provided
@@ -1985,15 +2767,15 @@ class HTTPRequest:
         except aiohttp.ClientConnectorCertificateError as e:
             print(f"SSL Certificate Error: {e}")
             return url, regex, port, use_ssl, "SSL Error", str(e), "✘", "N/A", datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
+        
         except asyncio.CancelledError:
             print("Fetch URL task was cancelled.")
-            return url, regex, port, use_ssl, "Cancelled", "Task was cancelled", "✘", "N/A", datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            return url, regex, port, use_ssl, "Cancelled", "Task was cancelled", "✘", "N/A", datetime.now().strftime('%Y-%m-%d %H:%M:%S')            
 
         except Exception as e:
             print(f"Error: {e}")
             return url, regex, port, use_ssl, "Error", str(e), "✘", "N/A", datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
+    
     def update_http_table(self, env):
         table = getattr(self, f"{env}_table")
         table.delete(*table.get_children())  # Clear the table
@@ -2041,7 +2823,6 @@ class JWKSCheck:
         self.style = style
         self.is_collapsed = False
         self.default_url = "https://auth.pingone.com/0a7af83d-4ed9-4510-93cd-506fe835f69a/as/jwks"
-        self.url = self.default_url
         self.url = self.default_url
         ssl_context = create_combined_ssl_context(CA_path, cert_path) if cert_path else None
         self.setup_ui()
@@ -2092,7 +2873,7 @@ class JWKSCheck:
         self.cert_scrollbar_y.grid(row=2, column=4, sticky='ns')
 
         self.cert_scrollbar_x = ttk.Scrollbar(self.frame, orient=tk.HORIZONTAL, command=self.cert_table.xview)
-        self.cert_table.configure(yscroll=self.cert_scrollbar_x.set)
+        self.cert_table.configure(xscroll=self.cert_scrollbar_x.set)
         self.cert_scrollbar_x.grid(row=3, column=0, columnspan=4, sticky='ew')
 
         self.ec_table = self.setup_table(self.frame, ("Key Type", "Key ID", "Use", "X", "Y", "Curve"))
@@ -2103,7 +2884,7 @@ class JWKSCheck:
         self.ec_scrollbar_y.grid(row=4, column=4, sticky='ns')
 
         self.ec_scrollbar_x = ttk.Scrollbar(self.frame, orient=tk.HORIZONTAL, command=self.ec_table.xview)
-        self.ec_table.configure(yscroll=self.ec_scrollbar_x.set)
+        self.ec_table.configure(xscroll=self.ec_scrollbar_x.set)
         self.ec_scrollbar_x.grid(row=5, column=0, columnspan=4, sticky='ew')
 
         self.frame.rowconfigure(2, weight=1)
@@ -2244,13 +3025,6 @@ def restore_data():
             print(f"Error restoring data: {e}")
             log_error("Restore failed", e)
 
-
-def open_oidbc_debugger(theme):
-    subprocess.Popen([sys.executable, "libs/oidcdebugger.py", theme])
-
-def open_ldap_lookup(theme):
-    subprocess.Popen([sys.executable, "libs/ldaplookup.py", theme])
-
 def main():
     global first_run
     
@@ -2278,8 +3052,68 @@ def main():
     ttk.Button(top_frame, text="Backup Settings", command=lambda: backup_data(NSLookup, HTTPRequest)).pack(side=tk.RIGHT, padx=5, pady=5)
     ttk.Button(top_frame, text="Restore Settings", command=restore_data).pack(side=tk.RIGHT, padx=5, pady=5)
 
+    # List of available time zones
+    TIMEZONES = {
+        "Asia/Kolkata":"IST",
+        "UTC":"UTC",
+        "America/New_York":"EST",
+        "America/Chicago":"CST",
+        "America/Denver":"MST",
+        "America/Los_Angeles":"PST"
+    }
 
-# Add VPN indicator
+    def update_clock():
+        #Update the clock display with selected time zones.
+        utc_now = datetime.now(pytz.utc)
+        time_strings = []
+        for tz_name in selected_timezones:
+            tz = pytz.timezone(tz_name)
+            local_now = utc_now.astimezone(tz)
+            time_strings.append(f"{TIMEZONES.get(tz_name)}: {local_now.strftime('%H:%M:%S')}")
+        clock_label.config(text="\n".join(time_strings))
+        clock_label.after(1000, update_clock)
+        
+    def open_timezone_menu():
+        #Open a selection menu when the clock is clicked.
+        timezone_menu = tk.Toplevel()
+        timezone_menu.title("Select Time Zones")
+        timezone_menu.geometry("300x250")
+        timezoneframe = ttk.Frame(timezone_menu, padding="10")
+        timezoneframe.pack(fill=tk.BOTH, expand=True)
+        # instruction label
+        timezone_text = (
+        "Select 1-3 time zones to display.\n"
+        "If none are selected UTC will be displayed."
+        )
+        ttk.Label(timezoneframe, text=timezone_text).pack(padx=5, pady=5)
+        # Create checkboxes for time zone selection
+        selected_vars = {tz: tk.BooleanVar(value=(tz in selected_timezones)) for tz in TIMEZONES}
+
+        def apply_selection():
+            #Update selected time zones based on user input.
+            global selected_timezones
+            selected_timezones = [tz for tz, var in selected_vars.items() if var.get()][:3]  # Limit to 3
+            if not selected_timezones:
+                selected_timezones = ["UTC"]
+            timezone_menu.destroy()
+            update_clock()
+            clock_label.update()
+
+        for tz in TIMEZONES:
+            ttk.Checkbutton(timezoneframe, text=f"{TIMEZONES[tz]} ({tz})", variable=selected_vars[tz]).pack(anchor="w")
+        
+        ttk.Button(timezoneframe, text="Apply", command=apply_selection).pack(pady=10)
+
+    # Create clock label
+    clock_label = ttk.Label(top_frame)
+    clock_label.pack(side=tk.LEFT, padx=5, pady=5)
+
+    # Bind click event to open the timezone selection menu
+    #clock_label.bind("<Button-1>", open_timezone_menu)
+    ttk.Button(top_frame, text="Edit Timezones", command=open_timezone_menu).pack(side=tk.LEFT, padx=5, pady=5)
+    update_clock()
+
+    # Add VPN indicator
     def update_vpn_status():
         vpn_connected, vpn_ip, local_ip = is_connected_to_vpn()
         bulb_color = "green" if vpn_connected else "blue"
@@ -2345,13 +3179,19 @@ def main():
     ttk.Button(sidebar, text="TCP Tools", command=lambda: open_tcp_tools_window(theme_var.get()), style="TButton").grid(row=6, column=0, padx=5, pady=2)
     ttk.Button(sidebar, text="JWT Decoder", command=lambda: open_jwt_window(theme_var.get())).grid(row=7, column=0, padx=5, pady=2)
     ttk.Button(sidebar, text="SAML Decoder", command=lambda: open_saml_window(theme_var.get())).grid(row=8, column=0, padx=5, pady=2)
-    ttk.Button(sidebar, text="OIDC Debugger", command=lambda: open_oidbc_debugger(theme_var.get())).grid(row=9, column=0, padx=5, pady=2)
+    ttk.Button(sidebar, text="OIDC Debugger", command=lambda: OIDCDebugger(scrollable_frame, theme_var.get())).grid(row=9, column=0, padx=5, pady=2)
     ttk.Button(sidebar, text="OAuth Debugger", command=lambda: open_oauth_window(theme_var.get())).grid(row=10, column=0, padx=5, pady=2)
     ttk.Button(sidebar, text="SSL Certificate Reader", command=lambda: open_ssl_cert_reader(theme_var.get())).grid(row=11, column=0, padx=5, pady=2)
     ttk.Button(sidebar, text="JWKS Check", command=lambda: open_jwks_check_window(theme_var.get())).grid(row=12, column=0, padx=5, pady=2)
     ttk.Button(sidebar, text="PingFederate OAuth Client Tool", command=lambda: open_pingfederate_client_app(theme_var.get())).grid(row=13, column=0, padx=5, pady=2)
-    ttk.Button(sidebar, text="LDAP Lookup Tool", command=lambda: open_ldap_lookup(theme_var.get())).grid(row=14, column=0, padx=5, pady=2)
-#    HTTPRequest(http_request_frame, theme_var.get())
+
+   # ttk.Button(sidebar, text="Create Custom Hosts File", command=lambda: open_hosts_file_window(theme_var.get())).grid(row=13, column=0, padx=5, pady=2)
+
+    #ttk.Label(sidebar, text="CA Path:", style="TLabel").grid(row=14, column=0, padx=5, pady=5)
+    #ca_path_var = tk.StringVar(value=CA_path)
+    #ca_path_entry = ttk.Entry(sidebar, textvariable=ca_path_var, width=30, style="TEntry")
+    #ca_path_entry.grid(row=15, column=0, padx=5, pady=5)
+    #ttk.Button(sidebar, text="Update CA Path", command=lambda: update_ca_path(ca_path_var.get()), style="TButton").grid(row=16, column=0, padx=5, pady=5)
 
     for widget in scrollable_frame.winfo_children():
         widget.grid_configure(sticky="nsew")
@@ -2367,7 +3207,7 @@ def main():
 
     def display_message():
         try:
-            motd = "4oCcV2UgaGF2ZSBhIHN0cmF0ZWdpYyBwbGFuIOKAlCBpdOKAmXMgY2FsbGVkIGRvaW5nIHRoaW5ncy7igJ0K4oCcWW91ciBwZW9wbGUgY29tZSBmaXJzdCwgYW5kIGlmIHlvdSB0cmVhdCB0aGVtIHJpZ2h0LCB0aGV54oCZbCB0cmVhdCB0aGVtIGN1c3RvbWVycyByaWdodC7igJ0K4oCcVGhlIGVzc2VudGlhbCBkaWZmZXJlbmNlIGluIHNlcnZpY2UgaXMgbm90IG1hY2hpbmVzIG9yIOKAmHRoaW5ncy7igJkgVGhlIGVzc2VudGlhbCBkaWZmZXJlbmNlIGlzIG1pbmRzLCBoZWFydHMsIHNwaXJpdHMsIGFuZCBzb3Vscy7igJ0K4oCcWW91IGhhdmUgdG8gdHJlYXQgeW91ciBlbXBsb3llZXMgbGlrZSBjdXN0b21lcnMu4oCdCuKAnFlvdSBkb27igJl0IGhpcmUgZm9yIHNraWxscywgeW91IGhpcmUgZm9yIGF0dGl0dWRlLiBZb3UgY2FuIGFsd2F5cyB0ZWFjaCBza2lsbHMu4oCdCuKAnEEgY29tcGFueSBpcyBzdHJvbmdlciBpZiBpdCBpcyBib3VuZCBieSBsb3ZlIHJhdGhlciB0aGFuIGJ5IGZlYXIu4oCdCuKAnFRoaW5rIHNtYWxsIGFuZCBhY3Qgc21hbGwsIGFuZCB3ZeKAmWxsIGdldCBiaWdnZXIuIFRoaW5rIGJpZyBhbmQgYWN0IGJpZywgYW5kIHdl4oCZbGwgZ2V0IHNtYWxsZXIu4oCdCuKAnElmIHlvdeKAmXJlIGNyYXp5IGVub3VnaCB0byBkbyB3aGF0IHlvdSBsb3ZlIGZvciBhIGxpdmluZywgdGhlbiB5b3XigJlyZSBib3VuZCB0byBjcmVhdGUgYSBsaWZlIHRoYXQgbWF0dGVycy7igJ0K4oCcSSB0ZWxsIG15IGVtcGxveWVlcyB0aGF0IHdl4oCZcmUgaW4gdGhlIHNlcnZpY2UgYnVzaW5lc3MsIGFuZCBpdOKAmXMgaW5jaWRlbnRhbCB0aGF0IHdlIGZseSBhaXJwbGFuZXMu4oCdCuKAnEp1c3QgYmVjYXVzZSB5b3UgZG9u4oCZdCBhbm5vdW5jZSB5b3VyIHBsYW4gZG9lc27igJl0IG1lYW4geW91IGRvbuKAmXQgaGF2ZSBvbmUu4oCdCuKAnEkgZm9yZ2l2ZSBhbGwgcGVyc29uYWwgd2Vha25lc3NlcyBleGNlcHQgZWdvbWFuaWEgYW5kIHByZXRlbnNpb24u4oCdCuKAnElmIHlvdSBkb27igJl0IHRyZWF0IHlvdXIgb3duIHBlb3BsZSB3ZWxsLCB0aGV5IHdvbuKAmXQgdHJlYXQgb3RoZXIgcGVvcGxlIHdlbGwu4oCdCuKAnFRoZSBidXNpbmVzcyBvZiBidXNpbmVzcyBpcyBwZW9wbGUu4oCdCuKAnElmIHlvdSBjcmVhdGUgYW4gZW52aXJvbm1lbnQgd2hlcmUgdGhlIHBlb3BsZSB0cnVseSBwYXJ0aWNpcGF0ZSwgeW91IGRvbuKAmXQgbmVlZCBjb250cm9sLiBUaGV5IGtub3cgd2hhdCBuZWVkcyB0byBiZSBkb25lIGFuZCB0aGV5IGRvIGl0LuKAnQrigJxMZWFkaW5nIGFuZCBvcmdhbml6YXRpb24gaXMgYXMgbXVjaCBhYm91dCBzb3VsIGFzIGl0IGlzIGFib3V0IHN5c3RlbXMuIEVmZmVjdGl2ZSBsZWFkZXJzaGlwIGZpbmRzIGl0cyBzb3VyY2UgaW4gdW5kZXJzdGFuZGluZy7igJ0K4oCcSSBsZWFybmVkIGl0IGJ5IGRvaW5nIGl0LCBhbmQgSSB3YXMgc2NhcmVkIHRvIGRlYXRoLuKAnQrigJxJIHRob3VnaHQgbXkgZ3JlYXRlc3QgbW9tZW50IGluIGJ1c2luZXNzIHdhcyB3aGVuIHRoZSBmaXJzdCBTb3V0aHdlc3QgYWlycGxhbmUgYXJyaXZlZCBhZnRlciBmb3VyIHllYXJzIG9mIGxpdGlnYXRpb24gYW5kIEkgd2Fsa2VkIHVwIHRvIGl0IGFuZCBJIGtpc3NlZCB0aGF0IGJhYnkgb24gdGhlIGxpcHMgYW5kIEkgY3JpZWQu4oCdCiJXaGVuIGl0IGNvbWVzIHRvIGdldHRpbmdzIGRvbmUsIHdlIG5lZWQgZmV3ZXIgYXJjaGl0ZWN0cyBhbmQgbW9yZSBicmlja2xheWVycy4iCg=="
+            motd = "4oCcV2UgaGF2ZSBhIHN0cmF0ZWdpYyBwbGFuIOKAlCBpdOKAmXMgY2FsbGVkIGRvaW5nIHRoaW5ncy7igJ0K4oCcWW91ciBwZW9wbGUgY29tZSBmaXJzdCwgYW5kIGlmIHlvdSB0cmVhdCB0aGVtIHJpZ2h0LCB0aGV54oCZbCB0cmVhdCB0aGVtIGN1c3RvbWVycyByaWdodC7igJ0K4oCcVGhlIGVzc2VudGlhbCBkaWZmZXJlbmNlIGluIHNlcnZpY2UgaXMgbm90IG1hY2hpbmVzIG9yIOKAmHRoaW5ncy7igJkgVGhlIGVzc2VudGlhbCBkaWZmZXJlbmNlIGlzIG1pbmRzLCBoZWFydHMsIHNwaXJpdHMsIGFuZCBzb3Vscy7igJ0K4oCcWW91IGhhdmUgdG8gdHJlYXQgeW91ciBlbXBsb3llZXMgbGlrZSBjdXN0b21lcnMu4oCdCuKAnFlvdSBkb27igJl0IGhpcmUgZm9yIHNraWxscywgeW91IGhpcmUgZm9yIGF0dGl0dWRlLiBZb3UgY2FuIGFsd2F5cyB0ZWFjaCBza2lsbHMu4oCdCuKAnEEgY29tcGFueSBpcyBzdHJvbmdlciBpZiBpdCBpcyBib3VuZCBieSBsb3ZlIHJhdGhlciB0aGFuIGJ5IGZlYXIu4oCdCuKAnFRoaW5rIHNtYWxsIGFuZCBhY3Qgc21hbGwsIGFuZCB3ZeKAmWxsIGdldCBiaWdnZXIuIFRoaW5rIGJpZyBhbmQgYWN0IGJpZywgYW5kIHdl4oCZbGwgZ2V0IHNtYWxsZXIu4oCdCuKAnElmIHlvdeKAmXJlIGNyYXp5IGVub3VnaCB0byBkbyB3aGF0IHlvdSBsb3ZlIGZvciBhIGxpdmluZywgdGhlbiB5b3XigJlyZSBib3VuZCB0byBjcmVhdGUgYSBsaWZlIHRoYXQgbWF0dGVycy7igJ0K4oCcSSB0ZWxsIG15IGVtcGxveWVlcyB0aGF0IHdl4oCZcmUgaW4gdGhlIHNlcnZpY2UgYnVzaW5lc3MsIGFuZCBpdOKAmXMgaW5jaWRlbnRhbCB0aGF0IHdlIGZseSBhaXJwbGFuZXMu4oCdCuKAnEp1c3QgYmVjYXVzZSB5b3UgZG9u4oCZdCBhbm5vdW5jZSB5b3VyIHBsYW4gZG9lc27igJl0IG1lYW4geW91IGRvbuKAmXQgaGF2ZSBvbmUu4oCdCuKAnEkgZm9yZ2l2ZSBhbGwgcGVyc29uYWwgd2Vha25lc3NlcyBleGNlcHQgZWdvbWFuaWEgYW5kIHByZXRlbnNpb24u4oCdCuKAnElmIHlvdSBkb27igJl0IHRyZWF0IHlvdXIgb3duIHBlb3BsZSB3ZWxsLCB0aGV5IHdvbuKAmXQgdHJlYXQgb3RoZXIgcGVvcGxlIHdlbGwu4oCdCuKAnFRoZSBidXNpbmVzcyBvZiBidXNpbmVzcyBpcyBwZW9wbGUu4oCdCuKAnElmIHlvdSBjcmVhdGUgYW4gZW52aXJvbm1lbnQgd2hlcmUgdGhlIHBlb3BsZSB0cnVseSBwYXJ0aWNpcGF0ZSwgeW91IGRvbuKAmXQgbmVlZCBjb250cm9sLiBUaGV5IGtub3cgd2hhdCBuZWVkcyB0byBiZSBkb25lIGFuZCB0aGV5IGRvIGl0LuKAnQrigJxMZWFkaW5nIGFuIG9yZ2FuaXphdGlvbiBpcyBhcyBtdWNoIGFib3V0IHNvdWwgYXMgaXQgaXMgYWJvdXQgc3lzdGVtcy4gRWZmZWN0aXZlIGxlYWRlcnNoaXAgZmluZHMgaXRzIHNvdXJjZSBpbiB1bmRlcnN0YW5kaW5nLuKAnQrigJxJIGxlYXJuZWQgaXQgYnkgZG9pbmcgaXQsIGFuZCBJIHdhcyBzY2FyZWQgdG8gZGVhdGgu4oCdCuKAnEkgdGhpbmsgbXkgZ3JlYXRlc3QgbW9tZW50IGluIGJ1c2luZXNzIHdhcyB3aGVuIHRoZSBmaXJzdCBTb3V0aHdlc3QgYWlycGxhbmUgYXJyaXZlZCBhZnRlciBmb3VyIHllYXJzIG9mIGxpdGlnYXRpb24gYW5kIEkgd2Fsa2VkIHVwIHRvIGl0IGFuZCBJIGtpc3NlZCB0aGF0IGJhYnkgb24gdGhlIGxpcHMgYW5kIEkgY3JpZWQu4oCdCiJXaGVuIGl0IGNvbWVzIHRvIGdldHRpbmcgdGhpbmdzIGRvbmUsIHdlIG5lZWQgZmV3ZXIgYXJjaGl0ZWN0cyBhbmQgbW9yZSBicmlja2xheWVycy4iCg=="
             decoded_motd = base64.b64decode(motd).decode('utf-8')
             sayings = decoded_motd.split("\n")
             message = random.choice(sayings).strip()
@@ -2403,17 +3243,31 @@ def main():
 
     root.after(10, initialize_tools)
     root.mainloop()
+    
+    try:
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(loop.shutdown_asyncgens())
+        loop.close()
 
-    # Ensure the event loop is properly closed
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(loop.shutdown_asyncgens())
-    loop.close()
+        # Ensure the event loop is properly closed
+        if not loop.is_closed():
+            loop.close()
+
+        # Ensure the HTTPS server is properly shut down
+        if https_server:
+            shutdown_https_server()
+    except Exception:
+        pass  # Silence all processing errors on exit
 
 def update_ca_path(new_path):
     global CA_path
     CA_path = new_path
     print(f"CA Path updated to: {CA_path}")
 
+# Default selected time zones
+selected_timezones = ["UTC", "America/Chicago"]
+
+#if __name__ == "__main__":
 if os.name == 'nt':
     Is_Windows = True
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
